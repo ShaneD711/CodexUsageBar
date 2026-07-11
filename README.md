@@ -1,182 +1,102 @@
 # CodexUsageBar
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[简体中文](README.md) | [English](README.en.md)
 
-A lightweight, local, and focused macOS menu bar app for checking Codex usage at a glance.
+一款轻量、本机运行的 macOS 菜单栏应用，让你像查看电量一样，一眼看到 Codex 剩余用量。
 
-## Core Idea
+## 下载
 
-CodexUsageBar makes checking Codex usage as easy as checking your Mac battery.
+**[直接下载 v0.1.0（macOS Apple Silicon）](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.1.0/CodexUsageBar-v0.1.0-macos-arm64.zip)**
 
-The MVP displays the five-hour usage window directly in the menu bar:
+[SHA-256 校验文件](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.1.0/CodexUsageBar-v0.1.0-macos-arm64.zip.sha256) · [查看全部版本](https://github.com/ShaneD711/CodexUsageBar/releases)
 
-```text
-75% 16:57
-```
+> `v0.1.0` 是未经 Apple 公证的预览版，仅支持 Apple Silicon 和 macOS 14 及以上版本。首次打开需要在“系统设置 > 隐私与安全性”中手动允许。
 
-- `75%`: Remaining usage in the five-hour Codex window.
-- `16:57`: Reset time for the five-hour window.
+## 为什么做这个应用
 
-Clicking the menu bar item shows both usage windows:
+在 Codex 中查看剩余用量，需要打开侧边栏，点击最下方的用户名，再点击“剩余用量”。对于经常关注 Token 消耗的用户，这段重复操作既打断工作，也会放大用量焦虑。
 
-```text
-Usage Remaining
-5 hours    75%   16:57
-1 week     97%   Jul 18
-```
+CodexUsageBar 把 5 小时剩余百分比和重置时间直接放到 Mac 菜单栏。无需离开当前工作，只要抬眼看一下，就能知道还剩多少用量。
 
-## MVP Scope
+## 使用效果
 
-The first version includes:
+### 菜单栏一眼查看
 
-- Codex support only.
-- Five-hour remaining usage and reset time in the menu bar.
-- Five-hour and weekly usage in the popover.
-- Refresh status and clear failure states.
-- Local data access through Codex app-server.
+直接显示 5 小时窗口的剩余百分比和重置时间，无需再打开 Codex 设置页面。
 
-The first version intentionally excludes:
+<img src="docs/images/menu-bar-usage.png" alt="CodexUsageBar 菜单栏剩余用量" width="132">
 
-- Total token analytics.
-- Token activity heatmaps.
-- Plugin rankings.
-- Skill usage analytics.
-- Daily task dashboards.
-- Claude Code support.
-- Account switching.
-- A full dashboard window.
-- Cloud synchronization.
-- Reading `~/.codex/auth.json`.
-- Uploading usage data.
+### 点击查看完整用量
 
-## Data Source
+点击菜单栏即可查看 5 小时和 1 周两个用量窗口。
 
-CodexUsageBar uses the local Codex app-server JSON-RPC protocol:
+<img src="docs/images/usage-popover.png" alt="CodexUsageBar 用量详情面板" width="320">
 
-```text
-codex app-server
-account/rateLimits/read
-```
+## 功能
 
-The app only reads rate limit data and does not upload usage data.
+- 菜单栏常驻显示 5 小时剩余百分比和重置时间。
+- 点击后查看 5 小时和 1 周剩余用量。
+- 启动、打开面板、每 5 分钟以及 Mac 唤醒后自动刷新。
+- 刷新失败时保留上一次成功数据，超过 10 分钟会显示过期警告。
+- 本机读取、本机缓存，不上传用量或对话数据。
 
-## Current Status
+## 安装
 
-The first runnable MVP is complete:
+1. 下载并解压 `CodexUsageBar-v0.1.0-macos-arm64.zip`。
+2. 将 `CodexUsageBar.app` 移动到“应用程序”文件夹。
+3. 尝试打开一次 CodexUsageBar。
+4. 打开 `系统设置 > 隐私与安全性`，找到 CodexUsageBar 并点击“仍要打开”。
+5. 确认系统警告，然后在 Mac 顶部菜单栏找到 CodexUsageBar。
 
-- The menu bar displays five-hour remaining usage and reset time.
-- The percentage and reset time stay together as one fixed-size menu bar label, preventing the reset time from being compressed out of view.
-- The popover displays five-hour and weekly usage.
-- Usage refreshes at launch, when the popover opens, and every five minutes.
-- Usage refreshes immediately after the Mac wakes from sleep.
-- The last successful snapshot remains visible when a refresh fails.
-- Snapshots older than ten minutes display a warning in the menu bar and popover.
-- JSON-RPC response parsing is covered by tests.
+公司或学校管理的 Mac 可能禁止手动放行。新下载的版本也可能需要重新批准。决定是否继续前，可以阅读 [Apple 关于打开未知开发者应用的说明](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac)。
 
-Design documents:
+### 验证下载文件
 
-- [MVP design specification](docs/superpowers/specs/2026-07-11-codex-usage-menu-bar-design.md)
-- [MVP 设计文档](docs/superpowers/specs/2026-07-11-codex-usage-menu-bar-design.zh-CN.md)
-- [Unnotarized preview release design](docs/superpowers/specs/2026-07-11-unnotarized-preview-release-design.md)
-- [未公证预览版发布设计](docs/superpowers/specs/2026-07-11-unnotarized-preview-release-design.zh-CN.md)
-
-## Download and Install
-
-The `v0.1.0` download is an **unnotarized Apple Silicon preview** for macOS 14 or later. It is not signed with an Apple Developer ID and has not been notarized by Apple.
-
-1. Open [GitHub Releases](https://github.com/ShaneD711/CodexUsageBar/releases) and download `CodexUsageBar-v0.1.0-macos-arm64.zip`.
-2. Extract the ZIP and move `CodexUsageBar.app` to `/Applications`.
-3. Try to open CodexUsageBar once.
-4. Open `System Settings > Privacy & Security`, find the blocked CodexUsageBar message, and click `Open Anyway`.
-5. Confirm the warning and enter your Mac password if requested.
-
-Company- or school-managed Macs may prevent this override. A newly downloaded version may need to be approved again. See [Apple's guidance for opening an app from an unknown developer](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac) before deciding whether to continue.
-
-### Verify the Download
-
-Download the `.zip` and `.sha256` files into the same folder, then run:
+将 ZIP 和校验文件放在同一个文件夹，然后运行：
 
 ```bash
 shasum -a 256 -c CodexUsageBar-v0.1.0-macos-arm64.zip.sha256
 ```
 
-Expected output:
+预期输出：
 
 ```text
 CodexUsageBar-v0.1.0-macos-arm64.zip: OK
 ```
 
-### Uninstall
+### 卸载
 
-Quit CodexUsageBar and move `/Applications/CodexUsageBar.app` to the Trash. To also clear its last cached usage snapshot, run:
+退出 CodexUsageBar，将 `/Applications/CodexUsageBar.app` 移到废纸篓。如需同时清除本地缓存，运行：
 
 ```bash
 defaults delete com.shaned.CodexUsageBar
 ```
 
-## Development Requirements
+## 开发
 
-- macOS 14 or later.
-- Xcode 16 or later.
-- ChatGPT/Codex installed and signed in on the same Mac.
+要求：macOS 14 或更高版本、Xcode 16 或更高版本，以及已安装并登录的 ChatGPT/Codex。
 
-The project uses Swift, SwiftUI, and Swift Package Manager with no third-party dependencies.
-
-## Run with Xcode
-
-1. Open Xcode.
-2. Select `File > Open`.
-3. Open `Package.swift` from the project root.
-4. Select the `CodexUsageBar` scheme and `My Mac` as the destination.
-5. Click Run or press `Command + R`.
-
-The app has no main window or Dock icon. After launch, find it in the macOS menu bar.
-
-## Run from Terminal
-
-Build, create a local `.app` bundle, and launch it:
+项目使用 Swift、SwiftUI 和 Swift Package Manager，不依赖第三方库。
 
 ```bash
+# 构建并启动开发版本
 ./script/build_and_run.sh
-```
 
-Run tests:
-
-```bash
+# 运行测试
 swift test
+
+# 生成 Release 安装包
+./script/package_release.sh 0.1.0
 ```
 
-The local app bundle is created at:
+## 隐私
 
-```text
-dist/CodexUsageBar.app
-```
+CodexUsageBar 只在本机请求和缓存剩余用量。它不会读取对话内容，不会读取 `~/.codex/auth.json`，也不会上传任何用量数据。
 
-## App Icon
+## 许可证
 
-The tracked icon assets are located at:
+CodexUsageBar 使用 [MIT License](LICENSE) 开源。
 
-```text
-Sources/CodexUsageBar/Resources/AppIcon.png
-Sources/CodexUsageBar/Resources/AppIcon.icns
-```
+## 免责声明
 
-Regenerate both files from the code-defined design:
-
-```bash
-swift script/generate_app_icon.swift
-```
-
-The build script stops with a clear error when `AppIcon.icns` is missing, preventing a blank application icon from being packaged.
-
-## Privacy
-
-CodexUsageBar only requests rate limit data through the local `codex app-server`. It does not read `~/.codex/auth.json`, inspect conversation content, or upload usage data.
-
-## License
-
-CodexUsageBar is available under the [MIT License](LICENSE).
-
-## Disclaimer
-
-CodexUsageBar is an unofficial local utility and is not affiliated with OpenAI. It uses the local Codex app-server protocol, which may change in future Codex releases.
+这是一个非官方本机工具，不隶属于 OpenAI。Codex 的本机接口未来可能随版本更新而变化。

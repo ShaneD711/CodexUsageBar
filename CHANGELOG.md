@@ -7,6 +7,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Changed
+
+- Make Chinese the default README, add direct release downloads and real usage screenshots, and focus the project introduction on the repeated Codex usage-checking workflow.
+
 ## [0.1.0] - 2026-07-11
 
 ### Added
@@ -22,4 +26,3 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Fixed
 
 - Keep the five-hour remaining percentage and reset time together in the menu bar so macOS does not compress the time out of view.
-

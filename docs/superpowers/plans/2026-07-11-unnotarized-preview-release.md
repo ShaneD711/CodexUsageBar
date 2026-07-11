@@ -212,7 +212,7 @@ Expected: exit status `2` and `usage: ... <major.minor.patch>` on stderr.
 
 **Files:**
 - Modify: `README.md`
-- Modify: `README.zh-CN.md`
+- Modify: `README.en.md`
 
 - [ ] **Step 1: Add the English preview warning and installation section**
 
@@ -265,7 +265,7 @@ Use the same commands and filenames. The warning must say `v0.1.0` is an `未经
 Run:
 
 ```bash
-rg -n "v0.1.0|arm64|sha256|Open Anyway|仍要打开|MIT" README.md README.zh-CN.md
+rg -n "v0.1.0|arm64|sha256|Open Anyway|仍要打开|MIT" README.md README.en.md
 ```
 
 Expected: both files contain the version, architecture, checksum, override, and license information.

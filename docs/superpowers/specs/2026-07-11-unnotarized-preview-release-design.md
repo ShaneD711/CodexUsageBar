@@ -99,7 +99,7 @@ The documentation will note that managed company or school Macs may prevent this
 ## Documentation Changes
 
 - Add the MIT `LICENSE` file.
-- Add download and installation sections to `README.md` and `README.zh-CN.md`.
+- Add download and installation sections to the default Chinese `README.md` and the switchable English `README.en.md`.
 - Add checksum verification instructions using `shasum -a 256 -c`.
 - Add an uninstall section that removes `CodexUsageBar.app` and optionally clears its `UserDefaults` cache with `defaults delete com.shaned.CodexUsageBar`.
 - Add a visible unnotarized preview warning.
