@@ -65,6 +65,7 @@ The app only reads rate limit data and does not upload usage data.
 The first runnable MVP is complete:
 
 - The menu bar displays five-hour remaining usage and reset time.
+- The percentage and reset time stay together as one fixed-size menu bar label, preventing the reset time from being compressed out of view.
 - The popover displays five-hour and weekly usage.
 - Usage refreshes at launch, when the popover opens, and every five minutes.
 - Usage refreshes immediately after the Mac wakes from sleep.
