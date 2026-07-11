@@ -77,8 +77,44 @@ Design documents:
 
 - [MVP design specification](docs/superpowers/specs/2026-07-11-codex-usage-menu-bar-design.md)
 - [MVP 设计文档](docs/superpowers/specs/2026-07-11-codex-usage-menu-bar-design.zh-CN.md)
+- [Unnotarized preview release design](docs/superpowers/specs/2026-07-11-unnotarized-preview-release-design.md)
+- [未公证预览版发布设计](docs/superpowers/specs/2026-07-11-unnotarized-preview-release-design.zh-CN.md)
 
-## Requirements
+## Download and Install
+
+The `v0.1.0` download is an **unnotarized Apple Silicon preview** for macOS 14 or later. It is not signed with an Apple Developer ID and has not been notarized by Apple.
+
+1. Open [GitHub Releases](https://github.com/ShaneD711/CodexUsageBar/releases) and download `CodexUsageBar-v0.1.0-macos-arm64.zip`.
+2. Extract the ZIP and move `CodexUsageBar.app` to `/Applications`.
+3. Try to open CodexUsageBar once.
+4. Open `System Settings > Privacy & Security`, find the blocked CodexUsageBar message, and click `Open Anyway`.
+5. Confirm the warning and enter your Mac password if requested.
+
+Company- or school-managed Macs may prevent this override. A newly downloaded version may need to be approved again. See [Apple's guidance for opening an app from an unknown developer](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac) before deciding whether to continue.
+
+### Verify the Download
+
+Download the `.zip` and `.sha256` files into the same folder, then run:
+
+```bash
+shasum -a 256 -c CodexUsageBar-v0.1.0-macos-arm64.zip.sha256
+```
+
+Expected output:
+
+```text
+CodexUsageBar-v0.1.0-macos-arm64.zip: OK
+```
+
+### Uninstall
+
+Quit CodexUsageBar and move `/Applications/CodexUsageBar.app` to the Trash. To also clear its last cached usage snapshot, run:
+
+```bash
+defaults delete com.shaned.CodexUsageBar
+```
+
+## Development Requirements
 
 - macOS 14 or later.
 - Xcode 16 or later.
@@ -136,6 +172,10 @@ The build script stops with a clear error when `AppIcon.icns` is missing, preven
 ## Privacy
 
 CodexUsageBar only requests rate limit data through the local `codex app-server`. It does not read `~/.codex/auth.json`, inspect conversation content, or upload usage data.
+
+## License
+
+CodexUsageBar is available under the [MIT License](LICENSE).
 
 ## Disclaimer
 

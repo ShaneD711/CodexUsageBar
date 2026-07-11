@@ -79,6 +79,42 @@ account/rateLimits/read
 
 - [MVP 设计文档](docs/superpowers/specs/2026-07-11-codex-usage-menu-bar-design.zh-CN.md)
 - [MVP design specification](docs/superpowers/specs/2026-07-11-codex-usage-menu-bar-design.md)
+- [未公证预览版发布设计](docs/superpowers/specs/2026-07-11-unnotarized-preview-release-design.zh-CN.md)
+- [Unnotarized preview release design](docs/superpowers/specs/2026-07-11-unnotarized-preview-release-design.md)
+
+## 下载与安装
+
+`v0.1.0` 是面向 macOS 14 或更高版本的**未经 Apple 公证的 Apple Silicon 预览版**。它没有使用 Apple Developer ID 签名，也没有经过 Apple 公证。
+
+1. 打开 [GitHub Releases](https://github.com/ShaneD711/CodexUsageBar/releases)，下载 `CodexUsageBar-v0.1.0-macos-arm64.zip`。
+2. 解压 ZIP，将 `CodexUsageBar.app` 移动到“应用程序”文件夹。
+3. 尝试打开一次 CodexUsageBar。
+4. 打开 `系统设置 > 隐私与安全性`，找到被阻止的 CodexUsageBar，然后点击“仍要打开”。
+5. 再次确认警告，并在系统要求时输入 Mac 登录密码。
+
+公司或学校管理的 Mac 可能禁止手动放行。下载新版本后，也可能需要重新批准。决定是否继续前，可以阅读 [Apple 关于打开未知开发者应用的说明](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac)。
+
+### 验证下载文件
+
+将 `.zip` 和 `.sha256` 文件下载到同一个文件夹，然后运行：
+
+```bash
+shasum -a 256 -c CodexUsageBar-v0.1.0-macos-arm64.zip.sha256
+```
+
+预期输出：
+
+```text
+CodexUsageBar-v0.1.0-macos-arm64.zip: OK
+```
+
+### 卸载
+
+退出 CodexUsageBar，将 `/Applications/CodexUsageBar.app` 移到废纸篓。如需同时清除上一次用量快照缓存，运行：
+
+```bash
+defaults delete com.shaned.CodexUsageBar
+```
 
 ## 开发环境
 
@@ -138,6 +174,10 @@ swift script/generate_app_icon.swift
 ## 隐私
 
 CodexUsageBar 只通过本机 `codex app-server` 请求 rate limit 数据。它不会读取 `~/.codex/auth.json`，不会读取对话内容，也不会上传用量数据。
+
+## 许可证
+
+CodexUsageBar 使用 [MIT License](LICENSE) 开源。
 
 ## 免责声明
 
