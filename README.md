@@ -115,6 +115,23 @@ The local app bundle is created at:
 dist/CodexUsageBar.app
 ```
 
+## App Icon
+
+The tracked icon assets are located at:
+
+```text
+Sources/CodexUsageBar/Resources/AppIcon.png
+Sources/CodexUsageBar/Resources/AppIcon.icns
+```
+
+Regenerate both files from the code-defined design:
+
+```bash
+swift script/generate_app_icon.swift
+```
+
+The build script stops with a clear error when `AppIcon.icns` is missing, preventing a blank application icon from being packaged.
+
 ## Privacy
 
 CodexUsageBar only requests rate limit data through the local `codex app-server`. It does not read `~/.codex/auth.json`, inspect conversation content, or upload usage data.

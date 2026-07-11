@@ -117,6 +117,23 @@ swift test
 dist/CodexUsageBar.app
 ```
 
+## 应用图标
+
+仓库中保留的图标资源位于：
+
+```text
+Sources/CodexUsageBar/Resources/AppIcon.png
+Sources/CodexUsageBar/Resources/AppIcon.icns
+```
+
+可以通过以下命令根据代码定义的设计重新生成两个文件：
+
+```bash
+swift script/generate_app_icon.swift
+```
+
+如果缺少 `AppIcon.icns`，构建脚本会输出清晰错误并终止，避免再次打包出空白应用图标。
+
 ## 隐私
 
 CodexUsageBar 只通过本机 `codex app-server` 请求 rate limit 数据。它不会读取 `~/.codex/auth.json`，不会读取对话内容，也不会上传用量数据。

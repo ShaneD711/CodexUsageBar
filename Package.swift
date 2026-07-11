@@ -13,7 +13,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "CodexUsageBar",
-            path: "Sources/CodexUsageBar"
+            path: "Sources/CodexUsageBar",
+            exclude: ["Resources"]
         ),
         .testTarget(
             name: "CodexUsageBarTests",
