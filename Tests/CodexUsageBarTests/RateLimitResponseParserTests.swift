@@ -64,3 +64,33 @@ final class RateLimitResponseParserTests: XCTestCase {
         XCTAssertNil(snapshot.secondary)
     }
 }
+
+final class RateLimitSnapshotFreshnessTests: XCTestCase {
+    private let fetchedAt = Date(timeIntervalSince1970: 1_700_000_000)
+
+    func testSnapshotIsFreshAtTenMinuteBoundary() {
+        let snapshot = makeSnapshot()
+        let tenMinutesLater = fetchedAt.addingTimeInterval(10 * 60)
+
+        XCTAssertFalse(snapshot.isStale(at: tenMinutesLater))
+    }
+
+    func testSnapshotIsStaleAfterTenMinutes() {
+        let snapshot = makeSnapshot()
+        let tenMinutesAndOneSecondLater = fetchedAt.addingTimeInterval(10 * 60 + 1)
+
+        XCTAssertTrue(snapshot.isStale(at: tenMinutesAndOneSecondLater))
+    }
+
+    private func makeSnapshot() -> RateLimitSnapshot {
+        RateLimitSnapshot(
+            primary: RateLimitWindow(
+                usedPercent: 25,
+                durationMinutes: 300,
+                resetsAt: fetchedAt.addingTimeInterval(60 * 60)
+            ),
+            secondary: nil,
+            fetchedAt: fetchedAt
+        )
+    }
+}

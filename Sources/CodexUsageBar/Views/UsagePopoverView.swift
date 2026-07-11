@@ -72,18 +72,30 @@ struct UsagePopoverView: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 if let snapshot = store.snapshot {
-                    Text(UsageFormatting.lastUpdated(snapshot.fetchedAt))
+                    HStack(spacing: 4) {
+                        if store.isSnapshotStale {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                        }
+
+                        Text(
+                            store.isSnapshotStale
+                                ? "数据可能已过期 · \(UsageFormatting.lastUpdated(snapshot.fetchedAt))"
+                                : UsageFormatting.lastUpdated(snapshot.fetchedAt)
+                        )
+                    }
+                    .foregroundStyle(store.isSnapshotStale ? Color.orange : Color.secondary)
                 } else {
                     Text("尚未刷新")
+                        .foregroundStyle(.secondary)
                 }
 
                 if let errorMessage = store.errorMessage, store.snapshot != nil {
                     Text("\(errorMessage) 正在显示上次数据。")
                         .lineLimit(2)
+                        .foregroundStyle(.secondary)
                 }
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
 
             Spacer()
 

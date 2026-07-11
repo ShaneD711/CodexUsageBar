@@ -12,7 +12,16 @@ struct RateLimitWindow: Codable, Equatable, Sendable {
 }
 
 struct RateLimitSnapshot: Codable, Equatable, Sendable {
+    static let staleAfter: TimeInterval = 10 * 60
+
     let primary: RateLimitWindow
     let secondary: RateLimitWindow?
     let fetchedAt: Date
+
+    func isStale(
+        at date: Date = Date(),
+        threshold: TimeInterval = staleAfter
+    ) -> Bool {
+        date.timeIntervalSince(fetchedAt) > threshold
+    }
 }

@@ -82,9 +82,12 @@ Refresh usage at these times:
 - Once at launch.
 - Whenever the popover opens.
 - Every five minutes in the background.
+- Immediately after the Mac wakes from sleep.
 - When the user manually clicks refresh.
 
 The menu bar value must not flicker during refresh. Keep displaying the last successful snapshot until new data is available.
+
+If the last successful snapshot is more than ten minutes old, keep the cached value visible but add a warning icon in the menu bar. The popover must state that the data may be stale and show when it was last updated.
 
 ## Failure States
 
@@ -109,10 +112,10 @@ Popover message: `Codex is not signed in. Open Codex and sign in.`
 When refresh fails but cached data exists:
 
 ```text
-75% 16:57
+75% ⚠︎ 16:57
 ```
 
-Popover message: `Last updated 8 minutes ago. The latest refresh failed.`
+Popover message: `Data may be stale · Updated 12 minutes ago. The latest refresh failed.`
 
 When refresh fails and no cached data exists:
 

@@ -67,7 +67,9 @@ The first runnable MVP is complete:
 - The menu bar displays five-hour remaining usage and reset time.
 - The popover displays five-hour and weekly usage.
 - Usage refreshes at launch, when the popover opens, and every five minutes.
+- Usage refreshes immediately after the Mac wakes from sleep.
 - The last successful snapshot remains visible when a refresh fails.
+- Snapshots older than ten minutes display a warning in the menu bar and popover.
 - JSON-RPC response parsing is covered by tests.
 
 Design documents:

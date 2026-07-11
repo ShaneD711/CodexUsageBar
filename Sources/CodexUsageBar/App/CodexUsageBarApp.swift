@@ -16,7 +16,10 @@ struct CodexUsageBarApp: App {
         MenuBarExtra {
             UsagePopoverView(store: store)
         } label: {
-            MenuBarLabelView(snapshot: store.snapshot)
+            MenuBarLabelView(
+                snapshot: store.snapshot,
+                isStale: store.isSnapshotStale
+            )
         }
         .menuBarExtraStyle(.window)
     }
