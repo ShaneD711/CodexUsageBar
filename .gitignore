@@ -1,0 +1,29 @@
+.DS_Store
+
+# Xcode
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS app build outputs
+dist/
+build/
+*.app
+*.dmg
+*.zip
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+
+# Local Codex/brainstorm artifacts
+.superpowers/
