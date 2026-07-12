@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
+[![CI](https://github.com/ShaneD711/CodexUsageBar/actions/workflows/ci.yml/badge.svg)](https://github.com/ShaneD711/CodexUsageBar/actions/workflows/ci.yml)
+
 一款轻量、本机运行的 macOS 菜单栏应用，让你像查看电量一样，一眼看到 Codex 剩余用量。
 
 ## 下载
@@ -91,6 +93,8 @@ swift test
 # 生成 Release 安装包（版本读取自 VERSION）
 ./script/package_release.sh
 ```
+
+每次推送到 `main` 或创建 Pull Request 时，GitHub Actions 会自动运行脚本语法检查、Swift 测试和 arm64 Release 编译。
 
 ## 隐私
 

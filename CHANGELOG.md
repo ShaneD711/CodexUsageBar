@@ -7,6 +7,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+
+- Add GitHub Actions CI for shell validation, Swift tests, and arm64 release builds on pushes and pull requests.
+
 ## [0.1.1] - 2026-07-12
 
 ### Added

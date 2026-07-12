@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
+[![CI](https://github.com/ShaneD711/CodexUsageBar/actions/workflows/ci.yml/badge.svg)](https://github.com/ShaneD711/CodexUsageBar/actions/workflows/ci.yml)
+
 A lightweight, local macOS menu bar app that makes checking remaining Codex usage as easy as checking your battery.
 
 ## Download
@@ -91,6 +93,8 @@ swift test
 # Create a release archive (version comes from VERSION)
 ./script/package_release.sh
 ```
+
+GitHub Actions automatically validates shell syntax, runs Swift tests, and builds the arm64 release configuration for every push to `main` and every pull request.
 
 ## Privacy
 
