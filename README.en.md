@@ -6,11 +6,11 @@ A lightweight, local macOS menu bar app that makes checking remaining Codex usag
 
 ## Download
 
-**[Download v0.1.0 for macOS Apple Silicon](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.1.0/CodexUsageBar-v0.1.0-macos-arm64.zip)**
+**[Download v0.1.1 for macOS Apple Silicon](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.1.1/CodexUsageBar-v0.1.1-macos-arm64.zip)**
 
-[SHA-256 checksum](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.1.0/CodexUsageBar-v0.1.0-macos-arm64.zip.sha256) · [View all releases](https://github.com/ShaneD711/CodexUsageBar/releases)
+[SHA-256 checksum](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.1.1/CodexUsageBar-v0.1.1-macos-arm64.zip.sha256) · [View all releases](https://github.com/ShaneD711/CodexUsageBar/releases)
 
-> `v0.1.0` is an unnotarized preview for Apple Silicon Macs running macOS 14 or later. The first launch requires manual approval in System Settings > Privacy & Security.
+> `v0.1.1` is an unnotarized preview for Apple Silicon Macs running macOS 14 or later. The first launch requires manual approval in System Settings > Privacy & Security.
 
 ## Why This App Exists
 
@@ -38,11 +38,14 @@ Click the menu bar item to see both the five-hour and weekly usage windows.
 - Shows five-hour and weekly remaining usage in the popover.
 - Refreshes at launch, when the popover opens, every five minutes, and after Mac wake.
 - Keeps the last successful snapshot when refresh fails and warns after ten minutes.
+- Follows the macOS language in Simplified Chinese or English and distinguishes missing, signed-out, and timed-out states.
+- Uses a compact single-line header with native macOS typography, control sizing, and layout spacing.
+- Reveals the running app copy in Finder and copies diagnostics without account or quota data.
 - Reads and caches usage locally without uploading usage or conversation data.
 
 ## Install
 
-1. Download and extract `CodexUsageBar-v0.1.0-macos-arm64.zip`.
+1. Download and extract `CodexUsageBar-v0.1.1-macos-arm64.zip`.
 2. Move `CodexUsageBar.app` to `/Applications`.
 3. Try to open CodexUsageBar once.
 4. Open `System Settings > Privacy & Security`, find CodexUsageBar, and click `Open Anyway`.
@@ -55,13 +58,13 @@ Company- or school-managed Macs may prevent this override. A newly downloaded ve
 Place the ZIP and checksum file in the same folder, then run:
 
 ```bash
-shasum -a 256 -c CodexUsageBar-v0.1.0-macos-arm64.zip.sha256
+shasum -a 256 -c CodexUsageBar-v0.1.1-macos-arm64.zip.sha256
 ```
 
 Expected output:
 
 ```text
-CodexUsageBar-v0.1.0-macos-arm64.zip: OK
+CodexUsageBar-v0.1.1-macos-arm64.zip: OK
 ```
 
 ### Uninstall
@@ -85,8 +88,8 @@ The project uses Swift, SwiftUI, and Swift Package Manager with no third-party d
 # Run tests
 swift test
 
-# Create a release archive
-./script/package_release.sh 0.1.0
+# Create a release archive (version comes from VERSION)
+./script/package_release.sh
 ```
 
 ## Privacy

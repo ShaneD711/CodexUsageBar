@@ -7,6 +7,7 @@ BUNDLE_ID="com.shaned.CodexUsageBar"
 MIN_SYSTEM_VERSION="14.0"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VERSION_FILE="$ROOT_DIR/VERSION"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
@@ -15,6 +16,12 @@ APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 SOURCE_ICON="$ROOT_DIR/Sources/CodexUsageBar/Resources/AppIcon.icns"
+
+VERSION="$(tr -d '[:space:]' <"$VERSION_FILE")"
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "error: invalid version in $VERSION_FILE" >&2
+  exit 1
+fi
 
 cd "$ROOT_DIR"
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
@@ -49,6 +56,10 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$APP_NAME</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$VERSION</string>
+  <key>CFBundleVersion</key>
+  <string>$VERSION</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>
   <key>LSUIElement</key>

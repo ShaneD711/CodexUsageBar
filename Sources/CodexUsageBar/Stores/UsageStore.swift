@@ -5,7 +5,8 @@ final class UsageStore: ObservableObject {
     @Published private(set) var snapshot: RateLimitSnapshot?
     @Published private(set) var isRefreshing = false
     @Published private(set) var isSnapshotStale = false
-    @Published private(set) var errorMessage: String?
+    @Published private(set) var lastFailure: UsageFailure?
+    @Published private(set) var resolvedExecutable: ResolvedCodexExecutable?
 
     private let client: CodexAppServerClient
     private let cache: CachedUsageStore
@@ -58,13 +59,17 @@ final class UsageStore: ObservableObject {
         defer { isRefreshing = false }
 
         do {
-            let newSnapshot = try await client.readSnapshot()
-            snapshot = newSnapshot
-            cache.save(newSnapshot)
-            errorMessage = nil
+            let result = try await client.readSnapshot()
+            snapshot = result.snapshot
+            resolvedExecutable = result.executable
+            cache.save(result.snapshot)
+            lastFailure = nil
             updateStaleness()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "无法读取 Codex 用量。"
+            if resolvedExecutable == nil {
+                resolvedExecutable = CodexExecutableResolver.resolve()
+            }
+            lastFailure = UsageFailure(error)
             updateStaleness()
         }
     }

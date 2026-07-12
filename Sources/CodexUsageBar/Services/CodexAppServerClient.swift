@@ -1,6 +1,6 @@
 import Foundation
 
-enum CodexAppServerError: LocalizedError, Sendable {
+enum CodexAppServerError: Error, Sendable {
     case executableNotFound
     case launchFailed(String)
     case notLoggedIn
@@ -8,33 +8,22 @@ enum CodexAppServerError: LocalizedError, Sendable {
     case invalidResponse
     case server(String)
 
-    var errorDescription: String? {
-        switch self {
-        case .executableNotFound:
-            return "未找到 Codex。请先安装 ChatGPT/Codex。"
-        case .launchFailed:
-            return "无法启动 Codex。"
-        case .notLoggedIn:
-            return "Codex 未登录。请打开 Codex 并登录。"
-        case .timedOut:
-            return "读取 Codex 用量超时。"
-        case .invalidResponse:
-            return "无法读取 Codex 用量。"
-        case .server(let message):
-            return message.isEmpty ? "无法读取 Codex 用量。" : message
-        }
-    }
+}
+
+struct CodexUsageReadResult: Sendable {
+    let snapshot: RateLimitSnapshot
+    let executable: ResolvedCodexExecutable
 }
 
 struct CodexAppServerClient: Sendable {
-    func readSnapshot() async throws -> RateLimitSnapshot {
+    func readSnapshot() async throws -> CodexUsageReadResult {
         try await Task.detached(priority: .utility) {
             try Self.readSnapshotSynchronously()
         }.value
     }
 
-    private static func readSnapshotSynchronously() throws -> RateLimitSnapshot {
-        guard let executableURL = CodexExecutableResolver.resolve() else {
+    private static func readSnapshotSynchronously() throws -> CodexUsageReadResult {
+        guard let executable = CodexExecutableResolver.resolve() else {
             throw CodexAppServerError.executableNotFound
         }
 
@@ -42,7 +31,7 @@ struct CodexAppServerClient: Sendable {
         let standardInput = Pipe()
         let standardOutput = Pipe()
 
-        process.executableURL = executableURL
+        process.executableURL = executable.url
         process.arguments = ["app-server", "--stdio"]
         process.standardInput = standardInput
         process.standardOutput = standardOutput
@@ -69,7 +58,7 @@ struct CodexAppServerClient: Sendable {
                 "id": 1,
                 "method": "initialize",
                 "params": [
-                    "clientInfo": ["name": "codex-usage-bar", "version": "0.1.0"],
+                    "clientInfo": ["name": "codex-usage-bar", "version": AppSupport.version],
                     "capabilities": ["experimentalApi": true]
                 ]
             ],
@@ -88,7 +77,10 @@ struct CodexAppServerClient: Sendable {
         )
 
         let response = try readResponse(id: 2, reader: reader)
-        return try RateLimitResponseParser.parse(response)
+        return CodexUsageReadResult(
+            snapshot: try RateLimitResponseParser.parse(response),
+            executable: executable
+        )
     }
 
     private static func write(_ object: [String: Any], to handle: FileHandle) throws {

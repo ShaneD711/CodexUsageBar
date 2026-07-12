@@ -5,16 +5,29 @@ APP_NAME="CodexUsageBar"
 BUNDLE_ID="com.shaned.CodexUsageBar"
 MIN_SYSTEM_VERSION="14.0"
 ARCHITECTURE="arm64"
-VERSION="${1:-}"
+REQUESTED_VERSION="${1:-}"
 
-if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "usage: $0 <major.minor.patch>" >&2
+if (( $# > 1 )); then
+  echo "usage: $0 [expected-version]" >&2
   exit 2
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VERSION_FILE="$ROOT_DIR/VERSION"
 RELEASE_DIR="$ROOT_DIR/dist/release"
 SOURCE_ICON="$ROOT_DIR/Sources/CodexUsageBar/Resources/AppIcon.icns"
+
+VERSION="$(tr -d '[:space:]' <"$VERSION_FILE")"
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "error: invalid version in $VERSION_FILE" >&2
+  exit 1
+fi
+
+if [[ -n "$REQUESTED_VERSION" && "$REQUESTED_VERSION" != "$VERSION" ]]; then
+  echo "error: requested version $REQUESTED_VERSION does not match VERSION ($VERSION)" >&2
+  exit 2
+fi
+
 ARCHIVE_NAME="$APP_NAME-v$VERSION-macos-$ARCHITECTURE.zip"
 CHECKSUM_NAME="$ARCHIVE_NAME.sha256"
 ARCHIVE_PATH="$RELEASE_DIR/$ARCHIVE_NAME"

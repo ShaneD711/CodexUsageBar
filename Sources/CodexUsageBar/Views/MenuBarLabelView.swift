@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuBarLabelView: View {
     let snapshot: RateLimitSnapshot?
     let isStale: Bool
+    let localization: AppLocalization
 
     var body: some View {
         if let primary = snapshot?.primary {
@@ -12,7 +13,7 @@ struct MenuBarLabelView: View {
 
                 if isStale {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .accessibilityLabel("用量数据可能已过期")
+                        .accessibilityLabel(localization.staleAccessibilityLabel)
                 }
             }
             .fixedSize(horizontal: true, vertical: false)
