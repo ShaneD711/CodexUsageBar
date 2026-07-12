@@ -1,6 +1,13 @@
 import Foundation
 
 enum UsageFormatting {
+    static func resetText(for window: RateLimitWindow) -> String {
+        if window.durationMinutes < 24 * 60 {
+            return resetTime(window.resetsAt, locale: .autoupdatingCurrent)
+        }
+        return resetDate(window.resetsAt, locale: .autoupdatingCurrent)
+    }
+
     static func resetTime(_ date: Date, locale: Locale = .autoupdatingCurrent) -> String {
         let formatter = DateFormatter()
         formatter.locale = locale

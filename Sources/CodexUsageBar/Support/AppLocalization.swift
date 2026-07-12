@@ -5,11 +5,28 @@ enum AppLanguage: Equatable, Sendable {
     case english
 
     static func resolve(preferredLanguages: [String]) -> AppLanguage {
-        guard let identifier = preferredLanguages.first?.lowercased() else {
+        guard let identifier = preferredLanguages.first else {
             return .english
         }
 
-        return identifier.hasPrefix("zh") ? .simplifiedChinese : .english
+        let components = identifier
+            .replacingOccurrences(of: "_", with: "-")
+            .lowercased()
+            .split(separator: "-")
+
+        guard components.first == "zh" else {
+            return .english
+        }
+
+        if components.contains("hant") {
+            return .english
+        }
+
+        if components.contains("hans") || components.contains("cn") || components.contains("sg") {
+            return .simplifiedChinese
+        }
+
+        return .english
     }
 }
 
@@ -21,10 +38,6 @@ struct AppLocalization: Equatable, Sendable {
     }
 
     let language: AppLanguage
-
-    var locale: Locale {
-        Locale(identifier: language == .simplifiedChinese ? "zh-Hans" : "en")
-    }
 
     var headerTitle: String { text("Codex剩余用量", "Codex Usage Remaining") }
     var fiveHours: String { text("5 小时", "5 hours") }
@@ -38,6 +51,27 @@ struct AppLocalization: Equatable, Sendable {
     var copyDiagnostics: String { text("复制诊断信息", "Copy Diagnostics") }
     var copied: String { text("已复制", "Copied") }
     var staleAccessibilityLabel: String { text("用量数据可能已过期", "Usage data may be stale") }
+
+    func windowTitle(durationMinutes: Int) -> String {
+        switch durationMinutes {
+        case 300:
+            return fiveHours
+        case 10_080:
+            return oneWeek
+        default:
+            if durationMinutes > 0, durationMinutes.isMultiple(of: 1_440) {
+                let days = durationMinutes / 1_440
+                return text("\(days) 天", "\(days) day\(days == 1 ? "" : "s")")
+            }
+
+            if durationMinutes > 0, durationMinutes.isMultiple(of: 60) {
+                let hours = durationMinutes / 60
+                return text("\(hours) 小时", "\(hours) hour\(hours == 1 ? "" : "s")")
+            }
+
+            return text("\(durationMinutes) 分钟", "\(durationMinutes) min")
+        }
+    }
 
     func lastUpdated(seconds: TimeInterval) -> String {
         if seconds < 60 {
@@ -62,7 +96,7 @@ struct AppLocalization: Equatable, Sendable {
     }
 
     func failureMessage(_ failure: UsageFailure) -> String {
-        switch failure {
+        switch failure.category {
         case .executableNotFound:
             return text(
                 "未找到 Codex。请先安装 ChatGPT 或 Codex。",
@@ -77,6 +111,11 @@ struct AppLocalization: Equatable, Sendable {
             return text(
                 "读取 Codex 用量超时，请稍后重试。",
                 "Reading Codex usage timed out. Try again shortly."
+            )
+        case .serviceStopped:
+            return text(
+                "Codex 用量服务已意外退出，请重新刷新。",
+                "The Codex usage service stopped unexpectedly. Refresh to try again."
             )
         case .unsupportedResponse:
             return text(

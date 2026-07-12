@@ -42,7 +42,9 @@ final class AppSupportTests: XCTestCase {
             ),
             snapshotState: .availableFresh,
             lastRefresh: Date(timeIntervalSince1970: 1_700_000_000),
-            lastFailure: .timedOut
+            lastFailure: UsageFailure(
+                CodexAppServerError.server(code: -32001, phase: .rateLimits)
+            )
         )
 
         let report = AppSupport.diagnosticReport(
@@ -53,9 +55,12 @@ final class AppSupportTests: XCTestCase {
         XCTAssertTrue(report.contains("CodexUsageBar: 0.1.1"))
         XCTAssertTrue(report.contains("Codex source: local-cli"))
         XCTAssertTrue(report.contains("Codex executable: ~/.local/bin/codex"))
-        XCTAssertTrue(report.contains("Last error: timed-out"))
+        XCTAssertTrue(report.contains("Category: server"))
+        XCTAssertTrue(report.contains("Phase: rate-limits"))
+        XCTAssertTrue(report.contains("Error code: -32001"))
         XCTAssertFalse(report.contains("example"))
         XCTAssertFalse(report.localizedCaseInsensitiveContains("auth"))
+        XCTAssertFalse(report.contains("private detail"))
         XCTAssertFalse(report.contains("75%"))
     }
 }

@@ -1,13 +1,20 @@
 import Foundation
 
+enum AppServerPhase: String, Equatable, Sendable {
+    case launch
+    case initialize
+    case account
+    case rateLimits = "rate-limits"
+}
+
 enum CodexAppServerError: Error, Sendable {
     case executableNotFound
-    case launchFailed(String)
+    case launchFailed
     case notLoggedIn
-    case timedOut
-    case invalidResponse
-    case server(String)
-
+    case timedOut(phase: AppServerPhase)
+    case connectionClosed(phase: AppServerPhase)
+    case invalidResponse(phase: AppServerPhase)
+    case server(code: Int?, phase: AppServerPhase)
 }
 
 struct CodexUsageReadResult: Sendable {
@@ -15,15 +22,38 @@ struct CodexUsageReadResult: Sendable {
     let executable: ResolvedCodexExecutable
 }
 
-struct CodexAppServerClient: Sendable {
-    func readSnapshot() async throws -> CodexUsageReadResult {
-        try await Task.detached(priority: .utility) {
-            try Self.readSnapshotSynchronously()
-        }.value
+struct CodexAppServerClient: CodexUsageReading, Sendable {
+    private let executableResolver: @Sendable () -> ResolvedCodexExecutable?
+    private let requestTimeout: DispatchTimeInterval
+
+    init(
+        executableResolver: @escaping @Sendable () -> ResolvedCodexExecutable? = {
+            CodexExecutableResolver.resolve()
+        },
+        requestTimeout: DispatchTimeInterval = .seconds(15)
+    ) {
+        self.executableResolver = executableResolver
+        self.requestTimeout = requestTimeout
     }
 
-    private static func readSnapshotSynchronously() throws -> CodexUsageReadResult {
-        guard let executable = CodexExecutableResolver.resolve() else {
+    func readSnapshot() async throws -> CodexUsageReadResult {
+        let processController = ProcessCancellationController()
+        let operation = Task.detached(priority: .utility) {
+            try readSnapshotSynchronously(processController: processController)
+        }
+
+        return try await withTaskCancellationHandler {
+            try await operation.value
+        } onCancel: {
+            operation.cancel()
+            processController.cancel()
+        }
+    }
+
+    private func readSnapshotSynchronously(
+        processController: ProcessCancellationController
+    ) throws -> CodexUsageReadResult {
+        guard let executable = executableResolver() else {
             throw CodexAppServerError.executableNotFound
         }
 
@@ -36,11 +66,16 @@ struct CodexAppServerClient: Sendable {
         process.standardInput = standardInput
         process.standardOutput = standardOutput
         process.standardError = FileHandle.nullDevice
+        processController.register(process)
 
         do {
+            try processController.checkCancellation()
             try process.run()
+            try processController.checkCancellationAfterLaunch()
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
-            throw CodexAppServerError.launchFailed(error.localizedDescription)
+            throw CodexAppServerError.launchFailed
         }
 
         defer {
@@ -48,39 +83,76 @@ struct CodexAppServerClient: Sendable {
             if process.isRunning {
                 process.terminate()
             }
+            processController.unregister(process)
         }
 
-        let reader = JSONLineReader(handle: standardOutput.fileHandleForReading)
+        do {
+            let reader = JSONLineReader(handle: standardOutput.fileHandleForReading)
+            let requestDeadline = DispatchTime.now() + requestTimeout
 
-        try write(
-            [
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": [
-                    "clientInfo": ["name": "codex-usage-bar", "version": AppSupport.version],
-                    "capabilities": ["experimentalApi": true]
-                ]
-            ],
-            to: standardInput.fileHandleForWriting
-        )
+            try Self.write(
+                [
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": [
+                        "clientInfo": ["name": "codex-usage-bar", "version": AppSupport.version],
+                        "capabilities": ["experimentalApi": true]
+                    ]
+                ],
+                to: standardInput.fileHandleForWriting
+            )
 
-        _ = try readResponse(id: 1, reader: reader)
+            _ = try Self.readResponse(
+                id: 1,
+                phase: .initialize,
+                reader: reader,
+                deadline: requestDeadline
+            )
 
-        try write(
-            ["jsonrpc": "2.0", "method": "initialized", "params": [:]],
-            to: standardInput.fileHandleForWriting
-        )
-        try write(
-            ["jsonrpc": "2.0", "id": 2, "method": "account/rateLimits/read", "params": NSNull()],
-            to: standardInput.fileHandleForWriting
-        )
+            try Self.write(
+                ["jsonrpc": "2.0", "method": "initialized", "params": [:]],
+                to: standardInput.fileHandleForWriting
+            )
+            try Self.write(
+                [
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "account/read",
+                    "params": ["refreshToken": false]
+                ],
+                to: standardInput.fileHandleForWriting
+            )
 
-        let response = try readResponse(id: 2, reader: reader)
-        return CodexUsageReadResult(
-            snapshot: try RateLimitResponseParser.parse(response),
-            executable: executable
-        )
+            let accountResponse = try Self.readResponse(
+                id: 2,
+                phase: .account,
+                reader: reader,
+                deadline: requestDeadline
+            )
+            try AccountResponseParser.validate(accountResponse)
+
+            try Self.write(
+                ["jsonrpc": "2.0", "id": 3, "method": "account/rateLimits/read", "params": NSNull()],
+                to: standardInput.fileHandleForWriting
+            )
+
+            let response = try Self.readResponse(
+                id: 3,
+                phase: .rateLimits,
+                reader: reader,
+                deadline: requestDeadline
+            )
+            return CodexUsageReadResult(
+                snapshot: try RateLimitResponseParser.parse(response),
+                executable: executable
+            )
+        } catch {
+            if processController.isCancelled {
+                throw CancellationError()
+            }
+            throw error
+        }
     }
 
     private static func write(_ object: [String: Any], to handle: FileHandle) throws {
@@ -89,8 +161,28 @@ struct CodexAppServerClient: Sendable {
         try handle.write(contentsOf: data)
     }
 
-    private static func readResponse(id: Int, reader: JSONLineReader) throws -> Data {
-        while let line = try reader.nextLine() {
+    static func readResponse(
+        id: Int,
+        phase: AppServerPhase,
+        reader: any JSONLineReading,
+        deadline: DispatchTime
+    ) throws -> Data {
+        while true {
+            guard DispatchTime.now().uptimeNanoseconds < deadline.uptimeNanoseconds else {
+                throw CodexAppServerError.timedOut(phase: phase)
+            }
+
+            let line: Data?
+            do {
+                line = try reader.nextLine(until: deadline)
+            } catch JSONLineReaderError.timedOut {
+                throw CodexAppServerError.timedOut(phase: phase)
+            }
+
+            guard let line else {
+                throw CodexAppServerError.connectionClosed(phase: phase)
+            }
+
             guard
                 let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
                 let responseID = object["id"] as? Int,
@@ -99,24 +191,95 @@ struct CodexAppServerClient: Sendable {
                 continue
             }
 
-            if let error = object["error"] as? [String: Any] {
-                let message = error["message"] as? String ?? ""
-                let normalized = message.lowercased()
-                if normalized.contains("login") || normalized.contains("auth") {
-                    throw CodexAppServerError.notLoggedIn
-                }
-                throw CodexAppServerError.server(message)
+            if object["error"] != nil {
+                let envelope = try? JSONDecoder().decode(RPCErrorEnvelope.self, from: line)
+                throw CodexAppServerError.server(code: envelope?.error?.code, phase: phase)
             }
 
             return line
         }
-
-        throw CodexAppServerError.invalidResponse
     }
 }
 
-private final class JSONLineReader {
-    let handle: FileHandle
+private struct RPCErrorEnvelope: Decodable {
+    let error: RPCErrorPayload?
+}
+
+private struct RPCErrorPayload: Decodable {
+    let code: Int?
+}
+
+private final class ProcessCancellationController: @unchecked Sendable {
+    private let lock = NSLock()
+    private var process: Process?
+    private var cancelled = false
+
+    var isCancelled: Bool {
+        lock.withLock { cancelled }
+    }
+
+    func register(_ process: Process) {
+        let shouldTerminate = lock.withLock {
+            self.process = process
+            return cancelled
+        }
+
+        if shouldTerminate, process.isRunning {
+            process.terminate()
+        }
+    }
+
+    func unregister(_ process: Process) {
+        lock.withLock {
+            if self.process === process {
+                self.process = nil
+            }
+        }
+    }
+
+    func checkCancellation() throws {
+        if isCancelled {
+            throw CancellationError()
+        }
+    }
+
+    func checkCancellationAfterLaunch() throws {
+        guard isCancelled else { return }
+        terminateIfRunning()
+        throw CancellationError()
+    }
+
+    func cancel() {
+        lock.withLock {
+            cancelled = true
+        }
+        terminateIfRunning()
+    }
+
+    private func terminateIfRunning() {
+        let process = lock.withLock { self.process }
+        if let process, process.isRunning {
+            process.terminate()
+        }
+    }
+}
+
+protocol JSONLineReading: AnyObject {
+    func nextLine(until deadline: DispatchTime) throws -> Data?
+}
+
+enum JSONLineReaderError: Error {
+    case timedOut
+}
+
+final class JSONLineReader: JSONLineReading {
+    private enum ReadEvent {
+        case line(Data)
+        case waiting
+        case endOfFile
+    }
+
+    private let handle: FileHandle
     private let lock = NSLock()
     private let dataAvailable = DispatchSemaphore(value: 0)
     private var buffer = Data()
@@ -133,21 +296,19 @@ private final class JSONLineReader {
         handle.readabilityHandler = nil
     }
 
-    func nextLine(timeout: TimeInterval = 15) throws -> Data? {
-        let deadline = Date().addingTimeInterval(timeout)
-
+    func nextLine(until deadline: DispatchTime) throws -> Data? {
         while true {
-            if let line = takeLine() {
+            switch takeEvent() {
+            case .line(let line) where line.isEmpty:
+                continue
+            case .line(let line):
                 return line
-            }
-
-            let remaining = deadline.timeIntervalSinceNow
-            guard remaining > 0 else {
-                throw CodexAppServerError.timedOut
-            }
-
-            if dataAvailable.wait(timeout: .now() + remaining) == .timedOut {
-                throw CodexAppServerError.timedOut
+            case .endOfFile:
+                return nil
+            case .waiting:
+                if dataAvailable.wait(timeout: deadline) == .timedOut {
+                    throw JSONLineReaderError.timedOut
+                }
             }
         }
     }
@@ -163,51 +324,83 @@ private final class JSONLineReader {
         dataAvailable.signal()
     }
 
-    private func takeLine() -> Data? {
+    private func takeEvent() -> ReadEvent {
         lock.lock()
         defer { lock.unlock() }
 
         if let newlineIndex = buffer.firstIndex(of: 0x0A) {
             let line = Data(buffer[..<newlineIndex])
             buffer.removeSubrange(...newlineIndex)
-            return line.isEmpty ? takeLineLocked() : line
+            return .line(line)
         }
 
-        if reachedEnd, !buffer.isEmpty {
-            defer { buffer.removeAll() }
-            return buffer
+        if reachedEnd {
+            guard !buffer.isEmpty else {
+                return .endOfFile
+            }
+
+            let remaining = buffer
+            buffer.removeAll()
+            return .line(remaining)
         }
 
-        return nil
-    }
-
-    private func takeLineLocked() -> Data? {
-        guard let newlineIndex = buffer.firstIndex(of: 0x0A) else {
-            return nil
-        }
-        let line = Data(buffer[..<newlineIndex])
-        buffer.removeSubrange(...newlineIndex)
-        return line.isEmpty ? takeLineLocked() : line
+        return .waiting
     }
 }
 
+enum AccountResponseParser {
+    static func validate(_ data: Data) throws {
+        do {
+            let response = try JSONDecoder().decode(AccountRPCResponse.self, from: data)
+            guard let result = response.result else {
+                throw CodexAppServerError.invalidResponse(phase: .account)
+            }
+
+            if result.requiresOpenaiAuth, result.account == nil {
+                throw CodexAppServerError.notLoggedIn
+            }
+        } catch let error as CodexAppServerError {
+            throw error
+        } catch {
+            throw CodexAppServerError.invalidResponse(phase: .account)
+        }
+    }
+}
+
+private struct AccountRPCResponse: Decodable {
+    let result: AccountReadResult?
+}
+
+private struct AccountReadResult: Decodable {
+    let account: AccountMarker?
+    let requiresOpenaiAuth: Bool
+}
+
+private struct AccountMarker: Decodable {}
+
 enum RateLimitResponseParser {
     static func parse(_ data: Data, now: Date = Date()) throws -> RateLimitSnapshot {
-        let response = try JSONDecoder().decode(RPCResponse.self, from: data)
-        guard let result = response.result else {
-            throw CodexAppServerError.invalidResponse
-        }
+        do {
+            let response = try JSONDecoder().decode(RPCResponse.self, from: data)
+            guard let result = response.result else {
+                throw CodexAppServerError.invalidResponse(phase: .rateLimits)
+            }
 
-        let limits = result.rateLimitsByLimitId?["codex"] ?? result.rateLimits
-        guard let primary = limits?.primary?.model else {
-            throw CodexAppServerError.invalidResponse
-        }
+            let limits = result.rateLimitsByLimitId?["codex"] ?? result.rateLimits
+            guard let primary = limits?.primary?.model else {
+                throw CodexAppServerError.invalidResponse(phase: .rateLimits)
+            }
 
-        return RateLimitSnapshot(
-            primary: primary,
-            secondary: limits?.secondary?.model,
-            fetchedAt: now
-        )
+            return RateLimitSnapshot(
+                primary: primary,
+                secondary: limits?.secondary?.model,
+                fetchedAt: now
+            )
+        } catch let error as CodexAppServerError {
+            throw error
+        } catch {
+            throw CodexAppServerError.invalidResponse(phase: .rateLimits)
+        }
     }
 }
 

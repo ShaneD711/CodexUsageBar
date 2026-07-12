@@ -10,6 +10,21 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 
 - Add GitHub Actions CI for shell validation, Swift tests, and arm64 release builds on pushes and pull requests.
+- Add broader automated coverage for refresh behavior, process exit, timeouts, cancellation, and account state.
+- Detect signed-out accounts from structured account state instead of English error wording.
+
+### Changed
+
+- Make usage-window labels adapt to the actual window duration and order.
+- Improve privacy-safe diagnostics with a stable category, request stage, and optional error code.
+- Simplify the Chinese and English READMEs around download, installation, visible features, privacy, and uninstalling.
+
+### Fixed
+
+- Enforce one 15-second deadline across the complete app-server request and report closed output immediately instead of waiting for a timeout.
+- Terminate the active app-server process when its reading task is cancelled, without surfacing cancellation as a user-facing failure.
+- Limit Simplified Chinese UI selection to `zh-Hans`, `zh-CN`, and `zh-SG`; Traditional Chinese locales fall back to English until translated.
+- Format reset dates and times with the user's automatically updating system locale in both the menu bar and popover.
 
 ## [0.1.1] - 2026-07-12
 

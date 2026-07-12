@@ -43,23 +43,11 @@ struct UsagePopoverView: View {
     private var usageContent: some View {
         if let snapshot = store.snapshot {
             VStack(spacing: PopoverMetrics.usageRowSpacing) {
-                UsageWindowRow(
-                    title: localization.fiveHours,
-                    window: snapshot.primary,
-                    resetText: UsageFormatting.resetTime(
-                        snapshot.primary.resetsAt,
-                        locale: localization.locale
-                    )
-                )
-
-                if let secondary = snapshot.secondary {
+                ForEach(Array(snapshot.windows.enumerated()), id: \.offset) { _, window in
                     UsageWindowRow(
-                        title: localization.oneWeek,
-                        window: secondary,
-                        resetText: UsageFormatting.resetDate(
-                            secondary.resetsAt,
-                            locale: localization.locale
-                        )
+                        title: localization.windowTitle(durationMinutes: window.durationMinutes),
+                        window: window,
+                        resetText: UsageFormatting.resetText(for: window)
                     )
                 }
             }

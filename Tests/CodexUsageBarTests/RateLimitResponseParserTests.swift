@@ -94,3 +94,72 @@ final class RateLimitSnapshotFreshnessTests: XCTestCase {
         )
     }
 }
+
+final class RateLimitSnapshotWindowSelectionTests: XCTestCase {
+    func testWindowsExposeEveryParsedWindowInSourceOrder() {
+        let primary = makeWindow(durationMinutes: 10_080)
+        let secondary = makeWindow(durationMinutes: 300)
+        let snapshot = RateLimitSnapshot(
+            primary: primary,
+            secondary: secondary,
+            fetchedAt: Date()
+        )
+
+        XCTAssertEqual(snapshot.windows, [primary, secondary])
+    }
+
+    func testMenuBarPrefersFiveHourWindowWhenOrderChanges() {
+        let weekly = makeWindow(durationMinutes: 10_080)
+        let fiveHour = makeWindow(durationMinutes: 300)
+        let snapshot = RateLimitSnapshot(
+            primary: weekly,
+            secondary: fiveHour,
+            fetchedAt: Date()
+        )
+
+        XCTAssertEqual(snapshot.menuBarWindow, fiveHour)
+    }
+
+    func testMenuBarFallsBackToPrimaryForUnknownDurations() {
+        let primary = makeWindow(durationMinutes: 480)
+        let secondary = makeWindow(durationMinutes: 20_160)
+        let snapshot = RateLimitSnapshot(
+            primary: primary,
+            secondary: secondary,
+            fetchedAt: Date()
+        )
+
+        XCTAssertEqual(snapshot.menuBarWindow, primary)
+    }
+
+    func testResetFormattingUsesDurationRatherThanWindowPosition() {
+        let date = Date(timeIntervalSince1970: 1_783_756_800)
+        let shortWindow = RateLimitWindow(
+            usedPercent: 20,
+            durationMinutes: 480,
+            resetsAt: date
+        )
+        let longWindow = RateLimitWindow(
+            usedPercent: 20,
+            durationMinutes: 20_160,
+            resetsAt: date
+        )
+
+        XCTAssertEqual(
+            UsageFormatting.resetText(for: shortWindow),
+            UsageFormatting.resetTime(date, locale: .autoupdatingCurrent)
+        )
+        XCTAssertEqual(
+            UsageFormatting.resetText(for: longWindow),
+            UsageFormatting.resetDate(date, locale: .autoupdatingCurrent)
+        )
+    }
+
+    private func makeWindow(durationMinutes: Int) -> RateLimitWindow {
+        RateLimitWindow(
+            usedPercent: 25,
+            durationMinutes: durationMinutes,
+            resetsAt: Date(timeIntervalSince1970: 1_783_756_800)
+        )
+    }
+}

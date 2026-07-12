@@ -6,9 +6,12 @@ struct MenuBarLabelView: View {
     let localization: AppLocalization
 
     var body: some View {
-        if let primary = snapshot?.primary {
+        if let window = snapshot?.menuBarWindow {
             HStack(spacing: 3) {
-                Text("\(primary.remainingPercent)% \(UsageFormatting.resetTime(primary.resetsAt))")
+                Text(
+                    "\(window.remainingPercent)% "
+                        + UsageFormatting.resetText(for: window)
+                )
                     .monospacedDigit()
 
                 if isStale {

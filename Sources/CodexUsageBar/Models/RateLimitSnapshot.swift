@@ -18,6 +18,14 @@ struct RateLimitSnapshot: Codable, Equatable, Sendable {
     let secondary: RateLimitWindow?
     let fetchedAt: Date
 
+    var windows: [RateLimitWindow] {
+        [primary] + (secondary.map { [$0] } ?? [])
+    }
+
+    var menuBarWindow: RateLimitWindow {
+        windows.first { $0.durationMinutes == 300 } ?? primary
+    }
+
     func isStale(
         at date: Date = Date(),
         threshold: TimeInterval = staleAfter

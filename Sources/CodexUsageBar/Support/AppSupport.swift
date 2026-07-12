@@ -79,7 +79,9 @@ enum AppSupport {
         let refreshDate = diagnostic.lastRefresh.map {
             ISO8601DateFormatter().string(from: $0)
         } ?? "never"
-        let failure = diagnostic.lastFailure?.rawValue ?? "none"
+        let category = diagnostic.lastFailure?.category.rawValue ?? "none"
+        let phase = diagnostic.lastFailure?.phase?.rawValue ?? "none"
+        let serverCode = diagnostic.lastFailure?.serverCode.map(String.init) ?? "none"
 
         return [
             "CodexUsageBar: \(diagnostic.appVersion)",
@@ -89,7 +91,9 @@ enum AppSupport {
             "Codex executable: \(executablePath)",
             "Snapshot: \(diagnostic.snapshotState.rawValue)",
             "Last refresh: \(refreshDate)",
-            "Last error: \(failure)"
+            "Category: \(category)",
+            "Phase: \(phase)",
+            "Error code: \(serverCode)"
         ].joined(separator: "\n")
     }
 

@@ -8,20 +8,39 @@ final class UsageStore: ObservableObject {
     @Published private(set) var lastFailure: UsageFailure?
     @Published private(set) var resolvedExecutable: ResolvedCodexExecutable?
 
-    private let client: CodexAppServerClient
-    private let cache: CachedUsageStore
+    private let client: any CodexUsageReading
+    private let cache: any UsageSnapshotCaching
+    private let executableResolver: @Sendable () -> ResolvedCodexExecutable?
     private var refreshTask: Task<Void, Never>?
     private var freshnessTask: Task<Void, Never>?
     private var wakeObserver: SystemWakeObserver?
 
     init(
-        client: CodexAppServerClient = CodexAppServerClient(),
-        cache: CachedUsageStore = CachedUsageStore()
+        client: any CodexUsageReading = CodexAppServerClient(),
+        cache: (any UsageSnapshotCaching)? = nil,
+        executableResolver: @escaping @Sendable () -> ResolvedCodexExecutable? = {
+            CodexExecutableResolver.resolve()
+        },
+        startsAutomatically: Bool = true
     ) {
         self.client = client
-        self.cache = cache
-        snapshot = cache.load()
+        self.cache = cache ?? CachedUsageStore()
+        self.executableResolver = executableResolver
+        snapshot = self.cache.load()
         updateStaleness()
+
+        if startsAutomatically {
+            start()
+        }
+    }
+
+    deinit {
+        refreshTask?.cancel()
+        freshnessTask?.cancel()
+    }
+
+    func start(observeSystemWake: Bool = true) {
+        guard refreshTask == nil else { return }
 
         refreshTask = Task { [weak self] in
             await self?.refresh()
@@ -41,16 +60,21 @@ final class UsageStore: ObservableObject {
             }
         }
 
-        wakeObserver = SystemWakeObserver { [weak self] in
-            Task { @MainActor in
-                await self?.refresh()
+        if observeSystemWake {
+            wakeObserver = SystemWakeObserver { [weak self] in
+                Task { @MainActor in
+                    await self?.refresh()
+                }
             }
         }
     }
 
-    deinit {
+    func stop() {
         refreshTask?.cancel()
         freshnessTask?.cancel()
+        refreshTask = nil
+        freshnessTask = nil
+        wakeObserver = nil
     }
 
     func refresh() async {
@@ -65,9 +89,11 @@ final class UsageStore: ObservableObject {
             cache.save(result.snapshot)
             lastFailure = nil
             updateStaleness()
+        } catch is CancellationError {
+            updateStaleness()
         } catch {
             if resolvedExecutable == nil {
-                resolvedExecutable = CodexExecutableResolver.resolve()
+                resolvedExecutable = executableResolver()
             }
             lastFailure = UsageFailure(error)
             updateStaleness()
