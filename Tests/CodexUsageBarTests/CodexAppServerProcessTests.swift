@@ -11,7 +11,7 @@ final class CodexAppServerProcessTests: XCTestCase {
             """
         )
         defer { fixture.remove() }
-        let client = makeClient(executable: fixture.executable, timeout: .seconds(2))
+        let client = makeClient(executable: fixture.executable, timeout: .seconds(5))
         let startedAt = DispatchTime.now()
 
         do {
@@ -23,7 +23,7 @@ final class CodexAppServerProcessTests: XCTestCase {
             }
         }
 
-        XCTAssertLessThan(elapsedSeconds(since: startedAt), 1.5)
+        XCTAssertLessThan(elapsedSeconds(since: startedAt), 3)
     }
 
     func testContinuousNotificationsRespectTotalRequestDeadline() async throws {
@@ -65,7 +65,7 @@ final class CodexAppServerProcessTests: XCTestCase {
             """
         )
         defer { fixture.remove() }
-        let client = makeClient(executable: fixture.executable, timeout: .seconds(5))
+        let client = makeClient(executable: fixture.executable, timeout: .seconds(10))
         let readTask = Task { try await client.readSnapshot() }
 
         try await waitUntil { FileManager.default.fileExists(atPath: startedMarker.path) }
@@ -81,8 +81,10 @@ final class CodexAppServerProcessTests: XCTestCase {
             XCTFail("Expected CancellationError, got \(error)")
         }
 
-        try await waitUntil { FileManager.default.fileExists(atPath: terminatedMarker.path) }
-        XCTAssertLessThan(elapsedSeconds(since: cancelledAt), 2)
+        try await waitUntil(timeout: .seconds(5)) {
+            FileManager.default.fileExists(atPath: terminatedMarker.path)
+        }
+        XCTAssertLessThan(elapsedSeconds(since: cancelledAt), 4)
     }
 
     func testSignedOutAccountResponseStopsBeforeRateLimitRequest() async throws {

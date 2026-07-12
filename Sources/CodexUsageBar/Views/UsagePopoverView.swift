@@ -4,6 +4,7 @@ import SwiftUI
 struct UsagePopoverView: View {
     @ObservedObject var store: UsageStore
     let localization: AppLocalization
+    @Binding var displayMode: MenuBarDisplayMode
     @State private var copiedDiagnostics = false
 
     var body: some View {
@@ -63,13 +64,13 @@ struct UsagePopoverView: View {
             VStack(alignment: .leading, spacing: 2) {
                 if let snapshot = store.snapshot {
                     HStack(spacing: 4) {
-                        if store.isSnapshotStale {
+                        if store.availability.isStale {
                             Image(systemName: "exclamationmark.triangle.fill")
                         }
 
                         Text(statusText(for: snapshot))
                     }
-                    .foregroundStyle(store.isSnapshotStale ? Color.orange : Color.secondary)
+                    .foregroundStyle(store.availability.isStale ? Color.orange : Color.secondary)
                 } else {
                     Text("\(localization.notRefreshed) · v\(AppSupport.version)")
                         .foregroundStyle(.secondary)
@@ -96,6 +97,15 @@ struct UsagePopoverView: View {
             .help(localization.refresh)
 
             Menu {
+                Picker(localization.menuBarDisplay, selection: $displayMode) {
+                    Text(localization.standardDisplay)
+                        .tag(MenuBarDisplayMode.standard)
+                    Text(localization.compactDisplay)
+                        .tag(MenuBarDisplayMode.compact)
+                }
+
+                Divider()
+
                 Button {
                     if let applicationURL = AppSupport.runningApplicationURL {
                         AppSupport.revealInFinder(applicationURL)
@@ -134,10 +144,11 @@ struct UsagePopoverView: View {
     }
 
     private var emptyStateMessage: String {
-        guard let failure = store.lastFailure else {
-            return localization.readingUsage
+        if store.availability == .temporarilyUnavailable,
+           let failure = store.lastFailure {
+            return localization.failureMessage(failure)
         }
-        return localization.failureMessage(failure)
+        return localization.availabilityMessage(store.availability)
     }
 
     private func statusText(for snapshot: RateLimitSnapshot) -> String {
@@ -145,28 +156,19 @@ struct UsagePopoverView: View {
             snapshot.fetchedAt,
             localization: localization
         )
-        let status = store.isSnapshotStale
+        let status = store.availability.isStale
             ? localization.staleStatus(lastUpdated: lastUpdated)
             : lastUpdated
         return "\(status) · v\(AppSupport.version)"
     }
 
     private func copyDiagnostics() {
-        let snapshotState: AppDiagnostics.SnapshotState
-        if store.snapshot == nil {
-            snapshotState = .unavailable
-        } else if store.isSnapshotStale {
-            snapshotState = .availableStale
-        } else {
-            snapshotState = .availableFresh
-        }
-
         let diagnostics = AppDiagnostics(
             appVersion: AppSupport.version,
             operatingSystem: AppSupport.operatingSystem,
             architecture: AppSupport.architecture,
             executable: store.resolvedExecutable,
-            snapshotState: snapshotState,
+            availability: store.availability,
             lastRefresh: store.snapshot?.fetchedAt,
             lastFailure: store.lastFailure
         )

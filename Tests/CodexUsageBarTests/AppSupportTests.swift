@@ -40,7 +40,7 @@ final class AppSupportTests: XCTestCase {
                 url: URL(fileURLWithPath: "/Users/example/.local/bin/codex"),
                 source: .localCLI
             ),
-            snapshotState: .availableFresh,
+            availability: .availableFresh,
             lastRefresh: Date(timeIntervalSince1970: 1_700_000_000),
             lastFailure: UsageFailure(
                 CodexAppServerError.server(code: -32001, phase: .rateLimits)
@@ -55,6 +55,8 @@ final class AppSupportTests: XCTestCase {
         XCTAssertTrue(report.contains("CodexUsageBar: 0.1.1"))
         XCTAssertTrue(report.contains("Codex source: local-cli"))
         XCTAssertTrue(report.contains("Codex executable: ~/.local/bin/codex"))
+        XCTAssertTrue(report.contains("Availability: available-fresh"))
+        XCTAssertFalse(report.contains("Snapshot:"))
         XCTAssertTrue(report.contains("Category: server"))
         XCTAssertTrue(report.contains("Phase: rate-limits"))
         XCTAssertTrue(report.contains("Error code: -32001"))

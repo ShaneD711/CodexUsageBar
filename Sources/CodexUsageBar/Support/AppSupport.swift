@@ -2,17 +2,11 @@ import AppKit
 import Foundation
 
 struct AppDiagnostics: Sendable {
-    enum SnapshotState: String, Sendable {
-        case unavailable
-        case availableFresh = "available, fresh"
-        case availableStale = "available, stale"
-    }
-
     let appVersion: String
     let operatingSystem: String
     let architecture: String
     let executable: ResolvedCodexExecutable?
-    let snapshotState: SnapshotState
+    let availability: UsageAvailability
     let lastRefresh: Date?
     let lastFailure: UsageFailure?
 }
@@ -89,7 +83,7 @@ enum AppSupport {
             "Architecture: \(diagnostic.architecture)",
             "Codex source: \(executableSource)",
             "Codex executable: \(executablePath)",
-            "Snapshot: \(diagnostic.snapshotState.rawValue)",
+            "Availability: \(diagnostic.availability.rawValue)",
             "Last refresh: \(refreshDate)",
             "Category: \(category)",
             "Phase: \(phase)",

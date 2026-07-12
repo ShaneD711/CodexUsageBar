@@ -12,6 +12,7 @@ final class UsageStoreBehaviorTests: XCTestCase {
         let store = makeStore(reader: reader, cache: cache)
 
         XCTAssertEqual(store.snapshot, cached)
+        XCTAssertEqual(store.availability, .availableFresh)
 
         store.start(observeSystemWake: false)
         try await waitUntil { store.snapshot == refreshed }
@@ -29,6 +30,7 @@ final class UsageStoreBehaviorTests: XCTestCase {
         await store.refresh()
 
         XCTAssertEqual(store.snapshot, cached)
+        XCTAssertEqual(store.availability, .availableFresh)
         XCTAssertEqual(store.lastFailure?.category, .timedOut)
         XCTAssertEqual(store.lastFailure?.phase, .rateLimits)
         XCTAssertEqual(cache.savedSnapshots.count, 0)
@@ -51,27 +53,91 @@ final class UsageStoreBehaviorTests: XCTestCase {
 
         XCTAssertNil(store.lastFailure)
         XCTAssertEqual(store.snapshot, refreshed)
+        XCTAssertEqual(store.availability, .availableFresh)
         XCTAssertEqual(cache.savedSnapshots, [refreshed])
     }
 
-    func testConcurrentRefreshesRunOnlyOneReaderRequest() async throws {
-        let refreshed = makeSnapshot(usedPercent: 25, fetchedAt: Date())
-        let reader = ControlledUsageReader()
+    func testNoSnapshotFailureExposesStableAvailability() async {
+        let reader = ScriptedUsageReader(outcomes: [.failure(.notLoggedIn)])
+        let store = makeStore(reader: reader, cache: InMemoryUsageCache())
+
+        await store.refresh()
+
+        XCTAssertNil(store.snapshot)
+        XCTAssertEqual(store.availability, .notLoggedIn)
+        XCTAssertEqual(store.lastFailure?.category, .notLoggedIn)
+    }
+
+    func testLatestRefreshWinsWhenOlderSuccessReturnsLater() async throws {
+        let older = makeSnapshot(usedPercent: 70, fetchedAt: Date().addingTimeInterval(-30))
+        let newer = makeSnapshot(usedPercent: 20, fetchedAt: Date())
+        let reader = GenerationControlledUsageReader()
+        let cache = InMemoryUsageCache()
+        let store = makeStore(reader: reader, cache: cache)
+
+        let firstRefresh = Task { await store.refresh() }
+        try await waitUntil { await reader.callCount == 1 }
+        let secondRefresh = Task { await store.refresh() }
+        try await waitUntil { await reader.callCount == 2 }
+        try await waitUntil { await reader.cancelledRequestIDs.contains(0) }
+
+        await reader.succeed(requestID: 1, with: makeResult(newer))
+        await secondRefresh.value
+
+        XCTAssertEqual(store.snapshot, newer)
+        XCTAssertEqual(cache.savedSnapshots, [newer])
+        XCTAssertFalse(store.isRefreshing)
+
+        await reader.succeed(requestID: 0, with: makeResult(older))
+        await firstRefresh.value
+
+        XCTAssertEqual(store.snapshot, newer)
+        XCTAssertEqual(cache.savedSnapshots, [newer])
+        XCTAssertNil(store.lastFailure)
+    }
+
+    func testOlderFailureCannotOverwriteNewerSuccess() async throws {
+        let newer = makeSnapshot(usedPercent: 15, fetchedAt: Date())
+        let reader = GenerationControlledUsageReader()
         let store = makeStore(reader: reader, cache: InMemoryUsageCache())
 
         let firstRefresh = Task { await store.refresh() }
-        try await waitUntil { store.isRefreshing }
         try await waitUntil { await reader.callCount == 1 }
+        let secondRefresh = Task { await store.refresh() }
+        try await waitUntil { await reader.callCount == 2 }
 
-        await store.refresh()
-        let callCount = await reader.callCount
-        XCTAssertEqual(callCount, 1)
-
-        await reader.succeed(with: makeResult(refreshed))
+        await reader.succeed(requestID: 1, with: makeResult(newer))
+        await secondRefresh.value
+        await reader.fail(
+            requestID: 0,
+            with: CodexAppServerError.server(code: -32001, phase: .rateLimits)
+        )
         await firstRefresh.value
 
-        XCTAssertEqual(store.snapshot, refreshed)
+        XCTAssertEqual(store.snapshot, newer)
+        XCTAssertNil(store.lastFailure)
         XCTAssertFalse(store.isRefreshing)
+    }
+
+    func testStopInvalidatesAndCancelsActiveRefresh() async throws {
+        let ignored = makeSnapshot(usedPercent: 50, fetchedAt: Date())
+        let reader = GenerationControlledUsageReader()
+        let cache = InMemoryUsageCache()
+        let store = makeStore(reader: reader, cache: cache)
+
+        let refresh = Task { await store.refresh() }
+        try await waitUntil { await reader.callCount == 1 }
+
+        store.stop()
+        try await waitUntil { await reader.cancelledRequestIDs.contains(0) }
+        XCTAssertFalse(store.isRefreshing)
+
+        await reader.succeed(requestID: 0, with: makeResult(ignored))
+        await refresh.value
+
+        XCTAssertNil(store.snapshot)
+        XCTAssertTrue(cache.savedSnapshots.isEmpty)
+        XCTAssertNil(store.lastFailure)
     }
 
     func testCancelledRefreshDoesNotCreateFailure() async throws {
@@ -86,6 +152,7 @@ final class UsageStoreBehaviorTests: XCTestCase {
         XCTAssertFalse(store.isRefreshing)
         XCTAssertNil(store.lastFailure)
         XCTAssertNil(store.snapshot)
+        XCTAssertEqual(store.availability, .loading)
     }
 
     func testCorruptedCachedDataIsIgnored() {
@@ -182,20 +249,34 @@ private actor ScriptedUsageReader: CodexUsageReading {
     }
 }
 
-private actor ControlledUsageReader: CodexUsageReading {
+private actor GenerationControlledUsageReader: CodexUsageReading {
     private(set) var callCount = 0
-    private var continuation: CheckedContinuation<CodexUsageReadResult, Error>?
+    private(set) var cancelledRequestIDs: Set<Int> = []
+    private var continuations: [Int: CheckedContinuation<CodexUsageReadResult, Error>] = [:]
 
     func readSnapshot() async throws -> CodexUsageReadResult {
+        let requestID = callCount
         callCount += 1
-        return try await withCheckedThrowingContinuation { continuation in
-            self.continuation = continuation
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                continuations[requestID] = continuation
+            }
+        } onCancel: {
+            Task { await self.recordCancellation(requestID) }
         }
     }
 
-    func succeed(with result: CodexUsageReadResult) {
-        continuation?.resume(returning: result)
-        continuation = nil
+    func succeed(requestID: Int, with result: CodexUsageReadResult) {
+        continuations.removeValue(forKey: requestID)?.resume(returning: result)
+    }
+
+    func fail(requestID: Int, with error: Error) {
+        continuations.removeValue(forKey: requestID)?.resume(throwing: error)
+    }
+
+    private func recordCancellation(_ requestID: Int) {
+        cancelledRequestIDs.insert(requestID)
     }
 }
 

@@ -12,8 +12,19 @@ final class UsageStore: ObservableObject {
     private let cache: any UsageSnapshotCaching
     private let executableResolver: @Sendable () -> ResolvedCodexExecutable?
     private var refreshTask: Task<Void, Never>?
+    private var activeReadTask: Task<CodexUsageReadResult, Error>?
+    private var refreshGeneration: UInt64 = 0
     private var freshnessTask: Task<Void, Never>?
     private var wakeObserver: SystemWakeObserver?
+
+    var availability: UsageAvailability {
+        UsageAvailability.resolve(
+            hasSnapshot: snapshot != nil,
+            isSnapshotStale: isSnapshotStale,
+            isRefreshing: isRefreshing,
+            lastFailure: lastFailure
+        )
+    }
 
     init(
         client: any CodexUsageReading = CodexAppServerClient(),
@@ -36,6 +47,7 @@ final class UsageStore: ObservableObject {
 
     deinit {
         refreshTask?.cancel()
+        activeReadTask?.cancel()
         freshnessTask?.cancel()
     }
 
@@ -72,32 +84,60 @@ final class UsageStore: ObservableObject {
     func stop() {
         refreshTask?.cancel()
         freshnessTask?.cancel()
+        invalidateActiveRefresh()
         refreshTask = nil
         freshnessTask = nil
         wakeObserver = nil
     }
 
     func refresh() async {
-        guard !isRefreshing else { return }
+        refreshGeneration &+= 1
+        let generation = refreshGeneration
+        activeReadTask?.cancel()
+
+        let readTask = Task { [client] in
+            try await client.readSnapshot()
+        }
+        activeReadTask = readTask
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer {
+            if generation == refreshGeneration {
+                activeReadTask = nil
+                isRefreshing = false
+            }
+        }
 
         do {
-            let result = try await client.readSnapshot()
+            let result = try await withTaskCancellationHandler {
+                try await readTask.value
+            } onCancel: {
+                readTask.cancel()
+            }
+            guard generation == refreshGeneration else { return }
             snapshot = result.snapshot
             resolvedExecutable = result.executable
             cache.save(result.snapshot)
             lastFailure = nil
             updateStaleness()
         } catch is CancellationError {
+            guard generation == refreshGeneration else { return }
             updateStaleness()
         } catch {
+            guard generation == refreshGeneration else { return }
             if resolvedExecutable == nil {
                 resolvedExecutable = executableResolver()
             }
             lastFailure = UsageFailure(error)
             updateStaleness()
         }
+    }
+
+    private func invalidateActiveRefresh() {
+        refreshGeneration &+= 1
+        activeReadTask?.cancel()
+        activeReadTask = nil
+        isRefreshing = false
+        updateStaleness()
     }
 
     private func updateStaleness(now: Date = Date()) {

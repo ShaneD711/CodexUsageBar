@@ -6,9 +6,9 @@ A lightweight macOS menu bar app that makes checking remaining Codex usage as ea
 
 ## Download
 
-**[Download v0.1.2 for macOS Apple Silicon](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.1.2/CodexUsageBar-v0.1.2-macos-arm64.zip)**
+**[Download v0.2.0 for macOS Apple Silicon](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.2.0/CodexUsageBar-v0.2.0-macos-arm64.zip)**
 
-[SHA-256 checksum](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.1.2/CodexUsageBar-v0.1.2-macos-arm64.zip.sha256) · [All releases](https://github.com/ShaneD711/CodexUsageBar/releases)
+[SHA-256 checksum](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.2.0/CodexUsageBar-v0.2.0-macos-arm64.zip.sha256) · [All releases](https://github.com/ShaneD711/CodexUsageBar/releases)
 
 Requires macOS 14 or later, an Apple Silicon Mac, and ChatGPT/Codex installed and signed in.
 
@@ -31,6 +31,7 @@ CodexUsageBar puts the remaining percentage and reset time directly in the Mac m
 ## Features
 
 - Shows the remaining percentage and reset time in the menu bar.
+- Offers Standard and Compact menu bar display modes and remembers your choice.
 - Shows full usage details when clicked.
 - Refreshes automatically and warns when data is stale or unavailable.
 - Supports Simplified Chinese and English.

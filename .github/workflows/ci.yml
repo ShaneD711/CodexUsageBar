@@ -30,7 +30,7 @@ jobs:
           xcodebuild -version
 
       - name: Validate shell scripts
-        run: bash -n script/build_and_run.sh script/package_release.sh
+        run: bash -n script/build_and_run.sh script/package_release.sh script/release_check.sh
 
       - name: Run tests
         run: swift test

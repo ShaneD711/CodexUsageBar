@@ -47,6 +47,40 @@ final class AppLocalizationTests: XCTestCase {
         )
     }
 
+    func testMenuBarDisplayModeLabelsUseSelectedLanguage() {
+        let chinese = AppLocalization(language: .simplifiedChinese)
+        let english = AppLocalization(language: .english)
+
+        XCTAssertEqual(chinese.menuBarDisplay, "菜单栏显示")
+        XCTAssertEqual(chinese.standardDisplay, "标准")
+        XCTAssertEqual(chinese.compactDisplay, "紧凑")
+        XCTAssertEqual(english.menuBarDisplay, "Menu Bar Display")
+        XCTAssertEqual(english.standardDisplay, "Standard")
+        XCTAssertEqual(english.compactDisplay, "Compact")
+    }
+
+    func testAvailabilityMessagesUseStableLocalizedStates() {
+        let chinese = AppLocalization(language: .simplifiedChinese)
+        let english = AppLocalization(language: .english)
+
+        XCTAssertEqual(
+            chinese.availabilityMessage(.notLoggedIn),
+            "Codex 尚未登录。请先打开 Codex 并登录。"
+        )
+        XCTAssertEqual(
+            chinese.availabilityMessage(.incompatible),
+            "当前 Codex 版本返回了不支持的用量数据。"
+        )
+        XCTAssertEqual(
+            english.availabilityMessage(.executableNotFound),
+            "Codex was not found. Install ChatGPT or Codex first."
+        )
+        XCTAssertEqual(
+            english.availabilityMessage(.temporarilyUnavailable),
+            "Codex usage is temporarily unavailable. Try again shortly."
+        )
+    }
+
     func testWindowTitlesUseDurationInsteadOfPrimaryOrSecondaryPosition() {
         let chinese = AppLocalization(language: .simplifiedChinese)
         let english = AppLocalization(language: .english)

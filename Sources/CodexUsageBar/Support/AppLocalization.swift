@@ -50,7 +50,68 @@ struct AppLocalization: Equatable, Sendable {
     var showInFinder: String { text("在 Finder 中显示", "Show in Finder") }
     var copyDiagnostics: String { text("复制诊断信息", "Copy Diagnostics") }
     var copied: String { text("已复制", "Copied") }
+    var menuBarDisplay: String { text("菜单栏显示", "Menu Bar Display") }
+    var standardDisplay: String { text("标准", "Standard") }
+    var compactDisplay: String { text("紧凑", "Compact") }
     var staleAccessibilityLabel: String { text("用量数据可能已过期", "Usage data may be stale") }
+
+    func availabilityMessage(_ availability: UsageAvailability) -> String {
+        switch availability {
+        case .loading:
+            return readingUsage
+        case .availableFresh:
+            return text("Codex 用量可用", "Codex usage is available")
+        case .availableStale:
+            return staleAccessibilityLabel
+        case .notLoggedIn:
+            return text(
+                "Codex 尚未登录。请先打开 Codex 并登录。",
+                "Codex is not signed in. Open Codex and sign in first."
+            )
+        case .executableNotFound:
+            return text(
+                "未找到 Codex。请先安装 ChatGPT 或 Codex。",
+                "Codex was not found. Install ChatGPT or Codex first."
+            )
+        case .incompatible:
+            return text(
+                "当前 Codex 版本返回了不支持的用量数据。",
+                "This Codex version returned unsupported usage data."
+            )
+        case .temporarilyUnavailable:
+            return text(
+                "暂时无法读取 Codex 用量，请稍后重试。",
+                "Codex usage is temporarily unavailable. Try again shortly."
+            )
+        }
+    }
+
+    func menuBarDescription(
+        percentage: String,
+        resetTime: String?,
+        isStale: Bool
+    ) -> String {
+        let description: String
+        if let resetTime {
+            description = text(
+                "Codex 剩余用量：\(percentage)，重置时间 \(resetTime)",
+                "Codex usage remaining: \(percentage), resets at \(resetTime)"
+            )
+        } else {
+            description = text(
+                "Codex 剩余用量：\(percentage)",
+                "Codex usage remaining: \(percentage)"
+            )
+        }
+
+        guard isStale else {
+            return description
+        }
+        return text(
+            "\(description)。\(staleAccessibilityLabel)",
+            "\(description). \(staleAccessibilityLabel)"
+        )
+    }
 
     func windowTitle(durationMinutes: Int) -> String {
         switch durationMinutes {

@@ -7,6 +7,29 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-12
+
+### Added
+
+- Add Standard and Compact menu bar display modes, with the selected mode preserved across launches.
+- Add explicit `--%` and `--` placeholders when usage data is unavailable instead of presenting missing data as zero.
+- Add a stable availability model for loading, fresh, stale, signed-out, missing-Codex, incompatible, and temporarily unavailable states.
+- Add refresh generations so only the latest manual, scheduled, or wake-triggered request can update application state.
+- Add a strict, non-publishing release validation script for metadata, tags, packaging, architecture, signing, extraction, and checksums.
+- Add concise architecture, security, distribution, and contribution contracts for long-term project maintenance.
+
+### Changed
+
+- Keep percentage, reset time, and warning regions at stable widths so routine refreshes do not shift neighboring menu bar items.
+- Keep the last successful values visible when data becomes stale, alongside the existing warning indicator.
+- Route menu bar text, stale state, tooltip, and accessibility copy through a shared presentation builder and model that can also power future previews.
+- Use the same availability state for menu-bar descriptions, popover empty states, refresh behavior, and privacy-safe diagnostics.
+- Replace dropped concurrent refresh attempts with latest-request-wins cancellation and generation checks.
+
+### Fixed
+
+- Render the status item as one fixed-width text label so macOS keeps the Standard reset time visible and does not move the stale warning ahead of the percentage.
+
 ## [0.1.2] - 2026-07-12
 
 ### Added
