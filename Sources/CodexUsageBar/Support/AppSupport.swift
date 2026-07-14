@@ -76,6 +76,7 @@ enum AppSupport {
         let category = diagnostic.lastFailure?.category.rawValue ?? "none"
         let phase = diagnostic.lastFailure?.phase?.rawValue ?? "none"
         let serverCode = diagnostic.lastFailure?.serverCode.map(String.init) ?? "none"
+        let responseChangeReason = diagnostic.lastFailure?.responseChangeReason?.rawValue ?? "none"
 
         return [
             "CodexUsageBar: \(diagnostic.appVersion)",
@@ -87,7 +88,8 @@ enum AppSupport {
             "Last refresh: \(refreshDate)",
             "Category: \(category)",
             "Phase: \(phase)",
-            "Error code: \(serverCode)"
+            "Error code: \(serverCode)",
+            "Response change reason: \(responseChangeReason)"
         ].joined(separator: "\n")
     }
 

@@ -7,7 +7,19 @@ struct RateLimitWindow: Codable, Equatable, Sendable {
 
     var remainingPercent: Int {
         let remaining = 100 - usedPercent
-        return min(100, max(0, Int(remaining.rounded())))
+        if remaining <= 0 { return 0 }
+        if remaining >= 100 { return 100 }
+        return Int(remaining.rounded())
+    }
+
+    var isSemanticallyValid: Bool {
+        let resetTimestamp = resetsAt.timeIntervalSince1970
+        return usedPercent.isFinite
+            && usedPercent >= 0
+            && durationMinutes > 0
+            && resetTimestamp.isFinite
+            && resetTimestamp > 0
+            && resetTimestamp <= Date.distantFuture.timeIntervalSince1970
     }
 }
 
@@ -24,6 +36,13 @@ struct RateLimitSnapshot: Codable, Equatable, Sendable {
 
     var menuBarWindow: RateLimitWindow {
         windows.first { $0.durationMinutes == 300 } ?? primary
+    }
+
+    var isSemanticallyValid: Bool {
+        let fetchTimestamp = fetchedAt.timeIntervalSince1970
+        return fetchTimestamp.isFinite
+            && fetchTimestamp > 0
+            && windows.allSatisfy(\.isSemanticallyValid)
     }
 
     func isStale(

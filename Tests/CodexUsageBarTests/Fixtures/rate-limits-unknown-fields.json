@@ -1,0 +1,25 @@
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "futureEnvelopeField": "ignored",
+  "result": {
+    "futureResultField": {
+      "nested": true
+    },
+    "rateLimitsByLimitId": {
+      "future-provider": {
+        "limitId": "future-provider"
+      },
+      "renamed-codex-key": {
+        "limitId": "codex",
+        "futureSetField": 1,
+        "primary": {
+          "usedPercent": 27.5,
+          "windowDurationMins": 480,
+          "resetsAt": 2000000000,
+          "futureWindowField": "ignored"
+        }
+      }
+    }
+  }
+}

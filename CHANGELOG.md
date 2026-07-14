@@ -7,6 +7,26 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-13
+
+### Added
+
+- Add anonymized protocol fixtures for signed-in, signed-out, dual-window, weekly-only, top-level fallback, and unknown-field responses.
+- Add stable error states for incompatible Codex methods and changed response formats, including privacy-safe diagnostic reasons.
+- Add semantic cache validation so decodable but invalid snapshots are removed instead of displayed.
+
+### Changed
+
+- Parse account and rate-limit responses conservatively while ignoring harmless unknown fields.
+- Support exact numeric JSON strings, weekly-only responses, secondary-only responses, reordered windows, internal Codex limit identifiers, and unknown positive window durations.
+- Keep the last trusted snapshot whenever transport, account, server, or response validation fails.
+
+### Fixed
+
+- Prevent malformed JSON-RPC lines and envelopes from waiting until timeout or being silently ignored.
+- Prevent damaged higher-priority Codex quota data from falling back to a different ambiguous bucket.
+- Clamp very large used-percentage values before integer conversion, avoiding overflow traps while reporting zero remaining usage.
+
 ## [0.2.0] - 2026-07-12
 
 ### Added

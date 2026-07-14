@@ -19,7 +19,10 @@ let package = Package(
         .testTarget(
             name: "CodexUsageBarTests",
             dependencies: ["CodexUsageBar"],
-            path: "Tests/CodexUsageBarTests"
+            path: "Tests/CodexUsageBarTests",
+            resources: [
+                .process("Fixtures")
+            ]
         )
     ]
 )

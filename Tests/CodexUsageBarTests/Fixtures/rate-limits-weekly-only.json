@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "rateLimitsByLimitId": {
+      "codex": {
+        "limitId": "codex",
+        "primary": {
+          "usedPercent": 21.5,
+          "windowDurationMins": 10080,
+          "resetsAt": 2000600000
+        },
+        "secondary": null
+      }
+    }
+  }
+}

@@ -7,7 +7,19 @@ final class UsageFailureTests: XCTestCase {
         XCTAssertEqual(UsageFailure(CodexAppServerError.notLoggedIn).category, .notLoggedIn)
         XCTAssertEqual(UsageFailure(CodexAppServerError.timedOut(phase: .account)).category, .timedOut)
         XCTAssertEqual(UsageFailure(CodexAppServerError.connectionClosed(phase: .initialize)).category, .serviceStopped)
-        XCTAssertEqual(UsageFailure(CodexAppServerError.invalidResponse(phase: .rateLimits)).category, .unsupportedResponse)
+        XCTAssertEqual(
+            UsageFailure(CodexAppServerError.incompatible(code: -32601, phase: .rateLimits)).category,
+            .incompatible
+        )
+        XCTAssertEqual(
+            UsageFailure(
+                CodexAppServerError.responseChanged(
+                    phase: .rateLimits,
+                    reason: .missingCriticalField
+                )
+            ).category,
+            .responseChanged
+        )
         XCTAssertEqual(UsageFailure(CodexAppServerError.launchFailed).category, .launchFailed)
         XCTAssertEqual(UsageFailure(CodexAppServerError.server(code: -32001, phase: .rateLimits)).category, .server)
     }
@@ -20,6 +32,16 @@ final class UsageFailureTests: XCTestCase {
         let server = UsageFailure(CodexAppServerError.server(code: -32001, phase: .rateLimits))
         XCTAssertEqual(server.phase, .rateLimits)
         XCTAssertEqual(server.serverCode, -32001)
+
+        let changed = UsageFailure(
+            CodexAppServerError.responseChanged(
+                phase: .rateLimits,
+                reason: .invalidCriticalValue
+            )
+        )
+        XCTAssertEqual(changed.phase, .rateLimits)
+        XCTAssertEqual(changed.responseChangeReason, .invalidCriticalValue)
+        XCTAssertNil(changed.serverCode)
     }
 
     func testUnknownErrorsUseGenericServiceCategory() {
@@ -27,6 +49,7 @@ final class UsageFailureTests: XCTestCase {
         XCTAssertEqual(failure.category, .server)
         XCTAssertNil(failure.phase)
         XCTAssertNil(failure.serverCode)
+        XCTAssertNil(failure.responseChangeReason)
     }
 
     private struct TestError: Error {}

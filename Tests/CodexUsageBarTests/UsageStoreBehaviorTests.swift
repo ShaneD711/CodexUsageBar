@@ -57,6 +57,36 @@ final class UsageStoreBehaviorTests: XCTestCase {
         XCTAssertEqual(cache.savedSnapshots, [refreshed])
     }
 
+    func testResponseChangePreservesTrustedSnapshotUntilLaterSuccess() async {
+        let cached = makeSnapshot(usedPercent: 65, fetchedAt: Date().addingTimeInterval(-60))
+        let refreshed = makeSnapshot(usedPercent: 15, fetchedAt: Date())
+        let reader = ScriptedUsageReader(outcomes: [
+            .failure(
+                .responseChanged(
+                    phase: .rateLimits,
+                    reason: .invalidCriticalType
+                )
+            ),
+            .success(makeResult(refreshed))
+        ])
+        let cache = InMemoryUsageCache(snapshot: cached)
+        let store = makeStore(reader: reader, cache: cache)
+
+        await store.refresh()
+
+        XCTAssertEqual(store.snapshot, cached)
+        XCTAssertEqual(store.availability, .availableFresh)
+        XCTAssertEqual(store.lastFailure?.category, .responseChanged)
+        XCTAssertEqual(store.lastFailure?.responseChangeReason, .invalidCriticalType)
+        XCTAssertTrue(cache.savedSnapshots.isEmpty)
+
+        await store.refresh()
+
+        XCTAssertEqual(store.snapshot, refreshed)
+        XCTAssertNil(store.lastFailure)
+        XCTAssertEqual(cache.savedSnapshots, [refreshed])
+    }
+
     func testNoSnapshotFailureExposesStableAvailability() async {
         let reader = ScriptedUsageReader(outcomes: [.failure(.notLoggedIn)])
         let store = makeStore(reader: reader, cache: InMemoryUsageCache())

@@ -7,13 +7,38 @@ enum AppServerPhase: String, Equatable, Sendable {
     case rateLimits = "rate-limits"
 }
 
-enum CodexAppServerError: Error, Sendable {
+enum ResponseChangeReason: String, Error, Equatable, Sendable {
+    case malformedEnvelope = "malformed-envelope"
+    case missingResult = "missing-result"
+    case missingCodexLimits = "missing-codex-limits"
+    case ambiguousCodexLimits = "ambiguous-codex-limits"
+    case missingCriticalField = "missing-critical-field"
+    case invalidCriticalType = "invalid-critical-type"
+    case invalidCriticalValue = "invalid-critical-value"
+    case noUsableWindow = "no-usable-window"
+
+    fileprivate var priority: Int {
+        switch self {
+        case .malformedEnvelope: 0
+        case .missingResult: 1
+        case .missingCodexLimits: 2
+        case .ambiguousCodexLimits: 3
+        case .noUsableWindow: 4
+        case .missingCriticalField: 5
+        case .invalidCriticalType: 6
+        case .invalidCriticalValue: 7
+        }
+    }
+}
+
+enum CodexAppServerError: Error, Equatable, Sendable {
     case executableNotFound
     case launchFailed
     case notLoggedIn
     case timedOut(phase: AppServerPhase)
     case connectionClosed(phase: AppServerPhase)
-    case invalidResponse(phase: AppServerPhase)
+    case incompatible(code: Int, phase: AppServerPhase)
+    case responseChanged(phase: AppServerPhase, reason: ResponseChangeReason)
     case server(code: Int?, phase: AppServerPhase)
 }
 
@@ -183,30 +208,74 @@ struct CodexAppServerClient: CodexUsageReading, Sendable {
                 throw CodexAppServerError.connectionClosed(phase: phase)
             }
 
-            guard
-                let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
-                let responseID = object["id"] as? Int,
-                responseID == id
-            else {
+            let object: [String: Any]
+            do {
+                guard let parsed = try JSONSerialization.jsonObject(with: line) as? [String: Any] else {
+                    throw changed(phase, .malformedEnvelope)
+                }
+                object = parsed
+            } catch let error as CodexAppServerError {
+                throw error
+            } catch {
+                throw changed(phase, .malformedEnvelope)
+            }
+
+            guard object.keys.contains("id") else {
+                guard object["method"] is String else {
+                    throw changed(phase, .malformedEnvelope)
+                }
                 continue
             }
 
-            if object["error"] != nil {
-                let envelope = try? JSONDecoder().decode(RPCErrorEnvelope.self, from: line)
-                throw CodexAppServerError.server(code: envelope?.error?.code, phase: phase)
+            guard let responseID = strictInteger(object["id"]) else {
+                throw changed(phase, .malformedEnvelope)
             }
 
+            let hasResult = object.keys.contains("result")
+            let hasError = object.keys.contains("error")
+            guard hasResult != hasError else {
+                throw changed(phase, .malformedEnvelope)
+            }
+
+            if hasError {
+                guard
+                    let error = object["error"] as? [String: Any],
+                    let code = strictInteger(error["code"])
+                else {
+                    throw changed(phase, .malformedEnvelope)
+                }
+
+                guard responseID == id else { continue }
+                if code == -32601 || code == -32602 {
+                    throw CodexAppServerError.incompatible(code: code, phase: phase)
+                }
+                throw CodexAppServerError.server(code: code, phase: phase)
+            }
+
+            guard responseID == id else { continue }
             return line
         }
     }
-}
 
-private struct RPCErrorEnvelope: Decodable {
-    let error: RPCErrorPayload?
-}
+    private static func changed(
+        _ phase: AppServerPhase,
+        _ reason: ResponseChangeReason
+    ) -> CodexAppServerError {
+        .responseChanged(phase: phase, reason: reason)
+    }
 
-private struct RPCErrorPayload: Decodable {
-    let code: Int?
+    private static func strictInteger(_ value: Any?) -> Int? {
+        guard let value, !isBoolean(value), let number = value as? NSNumber else {
+            return nil
+        }
+        let decimal = number.decimalValue
+        guard decimal.isFiniteInteger,
+              decimal >= Decimal(Int.min),
+              decimal <= Decimal(Int.max) else {
+            return nil
+        }
+        return NSDecimalNumber(decimal: decimal).intValue
+    }
 }
 
 private final class ProcessCancellationController: @unchecked Sendable {
@@ -351,91 +420,291 @@ final class JSONLineReader: JSONLineReading {
 enum AccountResponseParser {
     static func validate(_ data: Data) throws {
         do {
-            let response = try JSONDecoder().decode(AccountRPCResponse.self, from: data)
-            guard let result = response.result else {
-                throw CodexAppServerError.invalidResponse(phase: .account)
+            let envelope = try JSONObject.parse(data, phase: .account)
+            guard envelope.keys.contains("result"), !(envelope["result"] is NSNull) else {
+                throw changed(.missingResult)
+            }
+            guard let result = envelope["result"] as? [String: Any] else {
+                throw changed(.invalidCriticalType)
             }
 
-            if result.requiresOpenaiAuth, result.account == nil {
+            if let account = result["account"], !(account is NSNull) {
+                guard account is [String: Any] else {
+                    throw changed(.invalidCriticalType)
+                }
+                return
+            }
+
+            guard result.keys.contains("requiresOpenaiAuth") else {
+                throw changed(.missingCriticalField)
+            }
+            guard let authValue = result["requiresOpenaiAuth"],
+                  isBoolean(authValue),
+                  let requiresOpenaiAuth = authValue as? Bool else {
+                throw changed(.invalidCriticalType)
+            }
+            if requiresOpenaiAuth {
                 throw CodexAppServerError.notLoggedIn
             }
         } catch let error as CodexAppServerError {
             throw error
         } catch {
-            throw CodexAppServerError.invalidResponse(phase: .account)
+            throw changed(.malformedEnvelope)
         }
     }
-}
 
-private struct AccountRPCResponse: Decodable {
-    let result: AccountReadResult?
+    private static func changed(_ reason: ResponseChangeReason) -> CodexAppServerError {
+        .responseChanged(phase: .account, reason: reason)
+    }
 }
-
-private struct AccountReadResult: Decodable {
-    let account: AccountMarker?
-    let requiresOpenaiAuth: Bool
-}
-
-private struct AccountMarker: Decodable {}
 
 enum RateLimitResponseParser {
     static func parse(_ data: Data, now: Date = Date()) throws -> RateLimitSnapshot {
         do {
-            let response = try JSONDecoder().decode(RPCResponse.self, from: data)
-            guard let result = response.result else {
-                throw CodexAppServerError.invalidResponse(phase: .rateLimits)
+            let envelope = try JSONObject.parse(data, phase: .rateLimits)
+            guard envelope.keys.contains("result"), !(envelope["result"] is NSNull) else {
+                throw changed(.missingResult)
+            }
+            guard let result = envelope["result"] as? [String: Any] else {
+                throw changed(.invalidCriticalType)
             }
 
-            let limits = result.rateLimitsByLimitId?["codex"] ?? result.rateLimits
-            guard let primary = limits?.primary?.model else {
-                throw CodexAppServerError.invalidResponse(phase: .rateLimits)
+            let limits = try selectLimits(in: result)
+            let parsedWindows = try parseWindows(in: limits)
+            guard let first = parsedWindows.first else {
+                throw changed(.noUsableWindow)
             }
 
-            return RateLimitSnapshot(
-                primary: primary,
-                secondary: limits?.secondary?.model,
+            let snapshot = RateLimitSnapshot(
+                primary: first,
+                secondary: parsedWindows.dropFirst().first,
                 fetchedAt: now
             )
+            guard snapshot.isSemanticallyValid else {
+                throw changed(.invalidCriticalValue)
+            }
+            return snapshot
         } catch let error as CodexAppServerError {
             throw error
         } catch {
-            throw CodexAppServerError.invalidResponse(phase: .rateLimits)
+            throw changed(.malformedEnvelope)
+        }
+    }
+
+    private static func selectLimits(in result: [String: Any]) throws -> [String: Any] {
+        if let mappedValue = result["rateLimitsByLimitId"], !(mappedValue is NSNull) {
+            guard let mapped = mappedValue as? [String: Any] else {
+                throw changed(.invalidCriticalType)
+            }
+
+            if mapped.keys.contains("codex") {
+                guard let exact = mapped["codex"] as? [String: Any] else {
+                    throw changed(.invalidCriticalType)
+                }
+                return exact
+            }
+
+            let internalMatches = mapped.values.compactMap { value -> [String: Any]? in
+                guard let candidate = value as? [String: Any],
+                      let limitID = candidate["limitId"] as? String,
+                      limitID == "codex" else {
+                    return nil
+                }
+                return candidate
+            }
+
+            if internalMatches.count > 1 {
+                throw changed(.ambiguousCodexLimits)
+            }
+            if let internalMatch = internalMatches.first {
+                return internalMatch
+            }
+        }
+
+        guard result.keys.contains("rateLimits"), !(result["rateLimits"] is NSNull) else {
+            throw changed(.missingCodexLimits)
+        }
+        guard let fallback = result["rateLimits"] as? [String: Any] else {
+            throw changed(.invalidCriticalType)
+        }
+        return fallback
+    }
+
+    private static func parseWindows(in limits: [String: Any]) throws -> [RateLimitWindow] {
+        var foundTransportWindow = false
+        var windows: [RateLimitWindow] = []
+        var reasons: [ResponseChangeReason] = []
+
+        for name in ["primary", "secondary"] {
+            guard limits.keys.contains(name), let value = limits[name], !(value is NSNull) else {
+                continue
+            }
+
+            foundTransportWindow = true
+            guard let object = value as? [String: Any] else {
+                reasons.append(.invalidCriticalType)
+                continue
+            }
+
+            switch parseWindow(object) {
+            case .success(let window):
+                windows.append(window)
+            case .failure(let reason):
+                reasons.append(reason)
+            }
+        }
+
+        guard foundTransportWindow else {
+            throw changed(.noUsableWindow)
+        }
+        if let reason = reasons.min(by: { $0.priority < $1.priority }) {
+            throw changed(reason)
+        }
+        return windows
+    }
+
+    private static func parseWindow(
+        _ object: [String: Any]
+    ) -> Result<RateLimitWindow, ResponseChangeReason> {
+        var reasons: [ResponseChangeReason] = []
+
+        let usedPercent = capture(reasons: &reasons) {
+            let value = try scalar(named: "usedPercent", in: object).finiteDouble()
+            guard value >= 0 else { throw ResponseChangeReason.invalidCriticalValue }
+            return value
+        }
+        let durationMinutes = capture(reasons: &reasons) {
+            try scalar(named: "windowDurationMins", in: object).positiveInteger()
+        }
+        let resetTimestamp = capture(reasons: &reasons) {
+            let value = try scalar(named: "resetsAt", in: object).positiveInteger()
+            guard Double(value) <= Date.distantFuture.timeIntervalSince1970 else {
+                throw ResponseChangeReason.invalidCriticalValue
+            }
+            return value
+        }
+
+        if let reason = reasons.min(by: { $0.priority < $1.priority }) {
+            return .failure(reason)
+        }
+
+        guard let usedPercent, let durationMinutes, let resetTimestamp else {
+            return .failure(.invalidCriticalValue)
+        }
+        return .success(
+            RateLimitWindow(
+                usedPercent: usedPercent,
+                durationMinutes: durationMinutes,
+                resetsAt: Date(timeIntervalSince1970: TimeInterval(resetTimestamp))
+            )
+        )
+    }
+
+    private static func scalar(named name: String, in object: [String: Any]) throws -> ExactJSONNumber {
+        guard object.keys.contains(name) else {
+            throw ResponseChangeReason.missingCriticalField
+        }
+        guard let value = object[name], !(value is NSNull) else {
+            throw ResponseChangeReason.invalidCriticalType
+        }
+        guard !isBoolean(value), value is NSNumber || value is String else {
+            throw ResponseChangeReason.invalidCriticalType
+        }
+        guard let number = ExactJSONNumber(value) else {
+            throw ResponseChangeReason.invalidCriticalValue
+        }
+        return number
+    }
+
+    private static func capture<T>(
+        reasons: inout [ResponseChangeReason],
+        _ operation: () throws -> T
+    ) -> T? {
+        do {
+            return try operation()
+        } catch let reason as ResponseChangeReason {
+            reasons.append(reason)
+            return nil
+        } catch {
+            reasons.append(.invalidCriticalValue)
+            return nil
+        }
+    }
+
+    private static func changed(_ reason: ResponseChangeReason) -> CodexAppServerError {
+        .responseChanged(phase: .rateLimits, reason: reason)
+    }
+}
+
+private enum JSONObject {
+    static func parse(_ data: Data, phase: AppServerPhase) throws -> [String: Any] {
+        do {
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw CodexAppServerError.responseChanged(phase: phase, reason: .malformedEnvelope)
+            }
+            return object
+        } catch let error as CodexAppServerError {
+            throw error
+        } catch {
+            throw CodexAppServerError.responseChanged(phase: phase, reason: .malformedEnvelope)
         }
     }
 }
 
-private struct RPCResponse: Decodable {
-    let result: RateLimitReadResult?
-}
+private struct ExactJSONNumber {
+    private static let syntax = try! NSRegularExpression(
+        pattern: #"^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$"#
+    )
 
-private struct RateLimitReadResult: Decodable {
-    let rateLimits: RateLimitSet?
-    let rateLimitsByLimitId: [String: RateLimitSet]?
-}
+    let decimal: Decimal
 
-private struct RateLimitSet: Decodable {
-    let primary: RateLimitWindowDTO?
-    let secondary: RateLimitWindowDTO?
-}
-
-private struct RateLimitWindowDTO: Decodable {
-    let usedPercent: Double?
-    let windowDurationMins: Int?
-    let resetsAt: Double?
-
-    var model: RateLimitWindow? {
-        guard
-            let usedPercent,
-            let windowDurationMins,
-            let resetsAt
-        else {
+    init?(_ value: Any) {
+        let text: String
+        if let string = value as? String {
+            text = string
+        } else if let number = value as? NSNumber, !isBoolean(number) {
+            text = number.stringValue
+        } else {
             return nil
         }
 
-        return RateLimitWindow(
-            usedPercent: usedPercent,
-            durationMinutes: windowDurationMins,
-            resetsAt: Date(timeIntervalSince1970: resetsAt)
-        )
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard Self.syntax.firstMatch(in: text, range: range)?.range == range,
+              let decimal = Decimal(string: text, locale: Locale(identifier: "en_US_POSIX")) else {
+            return nil
+        }
+        self.decimal = decimal
     }
+
+    func finiteDouble() throws -> Double {
+        let value = NSDecimalNumber(decimal: decimal).doubleValue
+        guard value.isFinite else {
+            throw ResponseChangeReason.invalidCriticalValue
+        }
+        return value
+    }
+
+    func positiveInteger() throws -> Int {
+        guard decimal.isFiniteInteger,
+              decimal > 0,
+              decimal <= Decimal(Int.max) else {
+            throw ResponseChangeReason.invalidCriticalValue
+        }
+        return NSDecimalNumber(decimal: decimal).intValue
+    }
+}
+
+private extension Decimal {
+    var isFiniteInteger: Bool {
+        guard !isNaN else { return false }
+        var source = self
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &source, 0, .plain)
+        return rounded == self
+    }
+}
+
+private func isBoolean(_ value: Any) -> Bool {
+    guard let number = value as? NSNumber else { return false }
+    return CFGetTypeID(number) == CFBooleanGetTypeID()
 }

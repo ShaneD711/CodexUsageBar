@@ -7,6 +7,7 @@ enum UsageAvailability: String, Equatable, Sendable {
     case notLoggedIn = "not-logged-in"
     case executableNotFound = "executable-not-found"
     case incompatible
+    case responseChanged = "response-changed"
     case temporarilyUnavailable = "temporarily-unavailable"
 
     var isStale: Bool {
@@ -32,8 +33,10 @@ enum UsageAvailability: String, Equatable, Sendable {
             return .notLoggedIn
         case .executableNotFound:
             return .executableNotFound
-        case .unsupportedResponse:
+        case .incompatible:
             return .incompatible
+        case .responseChanged:
+            return .responseChanged
         case .timedOut, .serviceStopped, .launchFailed, .server, .none:
             return .temporarilyUnavailable
         }

@@ -6,9 +6,9 @@
 
 ## 下载
 
-**[直接下载 v0.2.0（macOS Apple Silicon）](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.2.0/CodexUsageBar-v0.2.0-macos-arm64.zip)**
+**[直接下载 v0.2.1（macOS Apple Silicon）](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.2.1/CodexUsageBar-v0.2.1-macos-arm64.zip)**
 
-[SHA-256 校验文件](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.2.0/CodexUsageBar-v0.2.0-macos-arm64.zip.sha256) · [全部版本](https://github.com/ShaneD711/CodexUsageBar/releases)
+[SHA-256 校验文件](https://github.com/ShaneD711/CodexUsageBar/releases/download/v0.2.1/CodexUsageBar-v0.2.1-macos-arm64.zip.sha256) · [全部版本](https://github.com/ShaneD711/CodexUsageBar/releases)
 
 需要 macOS 14 或更高版本、Apple Silicon Mac，以及已经安装并登录的 ChatGPT/Codex。
 

@@ -11,6 +11,8 @@ The app starts `codex app-server --stdio` and performs the required `initialize`
 
 Account response fields are not retained. The app does not directly read `~/.codex/auth.json`, sessions, prompts, conversations, project files, or Codex history.
 
+Responses that fail envelope, type, range, or semantic validation are not stored. The app keeps the last previously validated snapshot instead of persisting partially parsed or ambiguous data.
+
 ## Local Storage
 
 The last successful snapshot is encoded in `UserDefaults` under `lastSuccessfulRateLimitSnapshot`. It contains:
@@ -33,6 +35,10 @@ Copied diagnostics may contain:
 
 Diagnostics omit quota values, account data, tokens, raw server messages, `error.data`, prompts, and conversations.
 
+## Test Fixtures
+
+Protocol fixtures under `Tests/CodexUsageBarTests/Fixtures` preserve representative response structure with synthetic values. They must not contain real account identifiers, email addresses, tokens, raw server error text, personal quota values, prompts, sessions, or conversations. Fixture capture from a user's live account is not automated.
+
 ## Network Boundary
 
 CodexUsageBar has no automatic update checker, telemetry client, analytics SDK, or direct HTTP API client. The Codex process it launches may use Codex's own network and authenticated account state. That behavior belongs to Codex, not to a separate CodexUsageBar service.
@@ -48,4 +54,3 @@ Do not disclose tokens, account data, private paths, or exploit details in a pub
 Use GitHub private vulnerability reporting at `https://github.com/ShaneD711/CodexUsageBar/security/advisories/new` when available. If the repository does not expose that form, open a minimal public issue requesting a private contact channel without including vulnerability details.
 
 Security fixes are provided on a best-effort basis for the latest release.
-

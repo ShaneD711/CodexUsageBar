@@ -75,8 +75,13 @@ struct AppLocalization: Equatable, Sendable {
             )
         case .incompatible:
             return text(
-                "当前 Codex 版本返回了不支持的用量数据。",
-                "This Codex version returned unsupported usage data."
+                "当前 Codex 版本与本应用不兼容。",
+                "This Codex version is incompatible with the app."
+            )
+        case .responseChanged:
+            return text(
+                "Codex 返回格式发生变化，已停止使用本次数据。",
+                "The Codex response format changed, so this data was not used."
             )
         case .temporarilyUnavailable:
             return text(
@@ -178,10 +183,15 @@ struct AppLocalization: Equatable, Sendable {
                 "Codex 用量服务已意外退出，请重新刷新。",
                 "The Codex usage service stopped unexpectedly. Refresh to try again."
             )
-        case .unsupportedResponse:
+        case .incompatible:
             return text(
-                "当前 Codex 版本返回了不支持的用量数据。",
-                "This Codex version returned unsupported usage data."
+                "当前 Codex 版本与本应用不兼容。",
+                "This Codex version is incompatible with the app."
+            )
+        case .responseChanged:
+            return text(
+                "Codex 返回格式发生变化，已保留上次可信数据。",
+                "The Codex response format changed. The last trusted data was kept."
             )
         case .launchFailed:
             return text(

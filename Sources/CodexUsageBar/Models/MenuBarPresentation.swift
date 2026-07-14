@@ -55,7 +55,8 @@ enum MenuBarPresentationBuilder {
                 resetTime: resetTimeText,
                 isStale: isStale
             )
-        case .loading, .notLoggedIn, .executableNotFound, .incompatible, .temporarilyUnavailable:
+        case .loading, .notLoggedIn, .executableNotFound, .incompatible, .responseChanged,
+             .temporarilyUnavailable:
             description = localization.availabilityMessage(availability)
         }
 

@@ -78,6 +78,73 @@ final class CodexAppServerDeadlineTests: XCTestCase {
         }
     }
 
+    func testFixedProtocolMethodErrorsAreIncompatible() {
+        for code in [-32601, -32602] {
+            let reader = StubJSONLineReader(lines: [
+                Data(#"{"jsonrpc":"2.0","id":3,"error":{"code":\#(code),"message":"ignored"}}"#.utf8)
+            ])
+            XCTAssertThrowsError(
+                try CodexAppServerClient.readResponse(
+                    id: 3,
+                    phase: .rateLimits,
+                    reader: reader,
+                    deadline: .now() + .seconds(1)
+                )
+            ) {
+                XCTAssertEqual(
+                    $0 as? CodexAppServerError,
+                    .incompatible(code: code, phase: .rateLimits)
+                )
+            }
+        }
+    }
+
+    func testMalformedEnvelopesFailImmediately() {
+        let lines = [
+            Data("not-json".utf8),
+            Data("[]".utf8),
+            Data(#"{"jsonrpc":"2.0"}"#.utf8),
+            Data(#"{"jsonrpc":"2.0","id":"3","result":{}}"#.utf8),
+            Data(#"{"jsonrpc":"2.0","id":3,"result":{},"error":{"code":1}}"#.utf8),
+            Data(#"{"jsonrpc":"2.0","id":3}"#.utf8),
+            Data(#"{"jsonrpc":"2.0","id":3,"error":{"code":"1"}}"#.utf8)
+        ]
+
+        for line in lines {
+            let reader = StubJSONLineReader(lines: [line])
+            XCTAssertThrowsError(
+                try CodexAppServerClient.readResponse(
+                    id: 3,
+                    phase: .rateLimits,
+                    reader: reader,
+                    deadline: .now() + .seconds(1)
+                )
+            ) {
+                XCTAssertEqual(
+                    $0 as? CodexAppServerError,
+                    .responseChanged(phase: .rateLimits, reason: .malformedEnvelope)
+                )
+            }
+        }
+    }
+
+    func testUnrelatedValidResponseAndNotificationAreIgnored() throws {
+        let reader = StubJSONLineReader(lines: [
+            Data(#"{"jsonrpc":"2.0","id":99,"result":{"future":true}}"#.utf8),
+            Data(#"{"jsonrpc":"2.0","method":"future/notification","params":{}}"#.utf8),
+            Data(#"{"jsonrpc":"2.0","id":3,"result":null}"#.utf8)
+        ])
+
+        let result = try CodexAppServerClient.readResponse(
+            id: 3,
+            phase: .rateLimits,
+            reader: reader,
+            deadline: .now() + .seconds(1)
+        )
+
+        XCTAssertTrue(String(decoding: result, as: UTF8.self).contains(#""result":null"#))
+    }
+
     func testJSONLineReaderReturnsEOFWithoutWaitingForDeadline() throws {
         let pipe = Pipe()
         let reader = JSONLineReader(handle: pipe.fileHandleForReading)

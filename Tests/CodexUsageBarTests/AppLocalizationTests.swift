@@ -69,7 +69,11 @@ final class AppLocalizationTests: XCTestCase {
         )
         XCTAssertEqual(
             chinese.availabilityMessage(.incompatible),
-            "当前 Codex 版本返回了不支持的用量数据。"
+            "当前 Codex 版本与本应用不兼容。"
+        )
+        XCTAssertEqual(
+            chinese.availabilityMessage(.responseChanged),
+            "Codex 返回格式发生变化，已停止使用本次数据。"
         )
         XCTAssertEqual(
             english.availabilityMessage(.executableNotFound),

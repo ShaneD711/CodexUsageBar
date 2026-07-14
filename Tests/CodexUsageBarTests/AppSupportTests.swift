@@ -60,9 +60,36 @@ final class AppSupportTests: XCTestCase {
         XCTAssertTrue(report.contains("Category: server"))
         XCTAssertTrue(report.contains("Phase: rate-limits"))
         XCTAssertTrue(report.contains("Error code: -32001"))
+        XCTAssertTrue(report.contains("Response change reason: none"))
         XCTAssertFalse(report.contains("example"))
         XCTAssertFalse(report.localizedCaseInsensitiveContains("auth"))
         XCTAssertFalse(report.contains("private detail"))
         XCTAssertFalse(report.contains("75%"))
+    }
+
+    func testDiagnosticsIncludeResponseReasonWithoutRawPayload() {
+        let report = AppSupport.diagnosticReport(
+            AppDiagnostics(
+                appVersion: "0.2.1",
+                operatingSystem: "macOS 15.5",
+                architecture: "arm64",
+                executable: nil,
+                availability: .responseChanged,
+                lastRefresh: nil,
+                lastFailure: UsageFailure(
+                    CodexAppServerError.responseChanged(
+                        phase: .rateLimits,
+                        reason: .invalidCriticalType
+                    )
+                )
+            )
+        )
+
+        XCTAssertTrue(report.contains("Category: response-changed"))
+        XCTAssertTrue(report.contains("Phase: rate-limits"))
+        XCTAssertTrue(report.contains("Error code: none"))
+        XCTAssertTrue(report.contains("Response change reason: invalid-critical-type"))
+        XCTAssertFalse(report.contains("usedPercent"))
+        XCTAssertFalse(report.contains("private@example.com"))
     }
 }

@@ -28,7 +28,8 @@ final class UsageAvailabilityTests: XCTestCase {
     func testNoSnapshotMapsStableFailureCategories() {
         XCTAssertEqual(resolve(.notLoggedIn), .notLoggedIn)
         XCTAssertEqual(resolve(.executableNotFound), .executableNotFound)
-        XCTAssertEqual(resolve(.unsupportedResponse), .incompatible)
+        XCTAssertEqual(resolve(.incompatible), .incompatible)
+        XCTAssertEqual(resolve(.responseChanged), .responseChanged)
         XCTAssertEqual(resolve(.timedOut), .temporarilyUnavailable)
         XCTAssertEqual(resolve(.serviceStopped), .temporarilyUnavailable)
         XCTAssertEqual(resolve(.launchFailed), .temporarilyUnavailable)
@@ -63,8 +64,15 @@ final class UsageAvailabilityTests: XCTestCase {
             failure = UsageFailure(CodexAppServerError.notLoggedIn)
         case .executableNotFound:
             failure = UsageFailure(CodexAppServerError.executableNotFound)
-        case .unsupportedResponse:
-            failure = UsageFailure(CodexAppServerError.invalidResponse(phase: .rateLimits))
+        case .incompatible:
+            failure = UsageFailure(CodexAppServerError.incompatible(code: -32601, phase: .rateLimits))
+        case .responseChanged:
+            failure = UsageFailure(
+                CodexAppServerError.responseChanged(
+                    phase: .rateLimits,
+                    reason: .missingCodexLimits
+                )
+            )
         case .timedOut:
             failure = UsageFailure(CodexAppServerError.timedOut(phase: .rateLimits))
         case .serviceStopped:
